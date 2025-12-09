@@ -566,7 +566,6 @@ st.markdown("""
     Built with Python & Streamlit for Educational Purpose.
 </div>
 """, unsafe_allow_html=True)
-```
 
 ### Hướng dẫn sử dụng & Chạy ứng dụng
 
@@ -583,5 +582,6 @@ st.markdown("""
     Mở terminal tại thư mục chứa file và gõ:
     ```bash
     streamlit run semiconductor_portfolio.py
+
 
 
