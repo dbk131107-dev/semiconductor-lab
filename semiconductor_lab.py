@@ -463,91 +463,136 @@ elif selected_module == "4. Wiki Bán dẫn (Semiconductor Wiki)":
 # MODULE 5: QUY TRÌNH FAB
 # ==============================================================================
 elif selected_module == "5. Quy trình Fab (Fabrication)":
-    st.markdown('<div class="module-header"><h3>🏭 Module 5: Mô phỏng Quy trình Sản xuất Chip</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="module-header"><h3>🏭 Module 5: Mô phỏng Quy trình Sản xuất Chip 3D</h3></div>', unsafe_allow_html=True)
     
     st.markdown("""
     <div class="concept-box">
     Từ hạt cát (Silicon) đến con chip trong máy tính là một hành trình kỳ diệu.
-    Tại đây, chúng ta mô phỏng <b>Quy trình Planar</b> - nền tảng của công nghệ chế tạo IC hiện đại.
+    Tại đây, chúng ta mô phỏng <b>Quy trình Planar</b> - nền tảng của công nghệ chế tạo IC hiện đại dưới góc nhìn 3D.
     </div>
     """, unsafe_allow_html=True)
     
-    # Hàm vẽ Wafer (Tái sử dụng logic từ yêu cầu trước nhưng tối ưu cho Portfolio)
-    def draw_fab_step(step_index):
+    # Helper tạo hình hộp 3D (Cuboid) cho Plotly Mesh3d
+    def make_box(x0, x1, y0, y1, z0, z1, color, opacity=1.0, name=""):
+        # 8 đỉnh của hình hộp
+        x = [x0, x0, x1, x1, x0, x0, x1, x1]
+        y = [y0, y1, y1, y0, y0, y1, y1, y0]
+        z = [z0, z0, z0, z0, z1, z1, z1, z1]
+        
+        # Định nghĩa các mặt tam giác nối các đỉnh (i, j, k)
+        return go.Mesh3d(
+            x=x, y=y, z=z,
+            i = [7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2],
+            j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3],
+            k = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6],
+            color=color,
+            opacity=opacity,
+            name=name,
+            showscale=False
+        )
+
+    def draw_fab_step_3d(step_index):
         fig = go.Figure()
-        fig.update_xaxes(range=[0, 10], showgrid=False, visible=False)
-        fig.update_yaxes(range=[0, 8], showgrid=False, visible=False)
         
-        # 1. Base Silicon
-        fig.add_shape(type="rect", x0=1, y0=0, x1=9, y1=2, fillcolor="#C0C0C0", line=dict(color="gray"))
-        fig.add_annotation(x=5, y=1, text="Si Substrate (P-type)", showarrow=False)
+        # Kích thước chung
+        W, D = 10, 6 # Width, Depth
         
-        # Logic vẽ theo từng bước
-        # Step 1: Oxidation
-        if step_index >= 1:
-            fig.add_shape(type="rect", x0=1, y0=2, x1=9, y1=3, fillcolor="#87CEEB", line=dict(color="blue"))
-            fig.add_annotation(x=8, y=2.5, text="SiO2", font=dict(color="blue"))
+        # 1. SI SUBSTRATE (Luôn hiện) - Màu xám
+        fig.add_trace(make_box(0, W, 0, D, 0, 2, 'lightgray', name="Si Substrate"))
+        
+        # 2. Xử lý từng bước
+        
+        # Step 1: Oxidation (Thêm lớp Oxide xanh dương)
+        if step_index == 1:
+            fig.add_trace(make_box(0, W, 0, D, 2, 3, '#87CEEB', name="SiO2"))
             
-        # Step 2: Photoresist
-        if step_index >= 2 and step_index != 6: # Step 6 là Strip PR
-            fig.add_shape(type="rect", x0=1, y0=3, x1=9, y1=4, fillcolor="#FFB6C1", line=dict(color="red"))
-            if step_index == 2:
-                fig.add_annotation(x=5, y=3.5, text="Photoresist (PR)", font=dict(color="red"))
-
-        # Step 3: Lithography (Mask + UV)
-        if step_index == 3:
-            # Mask
-            fig.add_shape(type="rect", x0=1, y0=5, x1=3, y1=5.2, fillcolor="black")
-            fig.add_shape(type="rect", x0=7, y0=5, x1=9, y1=5.2, fillcolor="black")
-            fig.add_annotation(x=2, y=5.5, text="Mask")
-            # UV Rays
-            for x in [4, 5, 6]:
-                fig.add_annotation(x=x, y=3, ax=x, ay=6, arrowhead=2, arrowcolor="purple", text="UV" if x==5 else "")
-
-        # Step 4: Development (Removed exposed PR)
-        if step_index >= 4 and step_index != 6:
-            # Vẽ lại PR đè lên nhưng bị hở ở giữa
-            fig.layout.shapes = [s for s in fig.layout.shapes if s['fillcolor'] != "#FFB6C1"] # Xóa PR cũ
-            fig.add_shape(type="rect", x0=1, y0=3, x1=3, y1=4, fillcolor="#FFB6C1", line=dict(color="red"))
-            fig.add_shape(type="rect", x0=7, y0=3, x1=9, y1=4, fillcolor="#FFB6C1", line=dict(color="red"))
+        # Step 2: Spin Coat (Thêm lớp PR đỏ hồng)
+        elif step_index == 2:
+            fig.add_trace(make_box(0, W, 0, D, 2, 3, '#87CEEB', name="SiO2"))
+            fig.add_trace(make_box(0, W, 0, D, 3, 4, '#FFB6C1', name="Photoresist"))
             
-        # Step 5: Etching (Remove SiO2)
-        if step_index >= 5:
-            # Xóa SiO2 cũ
-            fig.layout.shapes = [s for s in fig.layout.shapes if s['fillcolor'] != "#87CEEB"]
-            # Vẽ SiO2 bị đục
-            fig.add_shape(type="rect", x0=1, y0=2, x1=3, y1=3, fillcolor="#87CEEB", line=dict(color="blue"))
-            fig.add_shape(type="rect", x0=7, y0=2, x1=9, y1=3, fillcolor="#87CEEB", line=dict(color="blue"))
+        # Step 3: Exposure (UV + Mask)
+        elif step_index == 3:
+            fig.add_trace(make_box(0, W, 0, D, 2, 3, '#87CEEB', name="SiO2"))
+            fig.add_trace(make_box(0, W, 0, D, 3, 4, '#FFB6C1', name="Photoresist"))
+            # Mask (2 miếng đen lơ lửng)
+            fig.add_trace(make_box(0, 3, 0, D, 5, 5.2, 'black', name="Mask Left"))
+            fig.add_trace(make_box(7, W, 0, D, 5, 5.2, 'black', name="Mask Right"))
+            # Tia UV (Các đường thẳng tím)
+            for x_line in np.linspace(3.5, 6.5, 5):
+                fig.add_trace(go.Scatter3d(
+                    x=[x_line, x_line], y=[D/2, D/2], z=[6, 3],
+                    mode='lines', line=dict(color='purple', width=5), name="UV Light"
+                ))
+
+        # Step 4: Development (Rửa trôi PR phần giữa)
+        elif step_index == 4:
+            fig.add_trace(make_box(0, W, 0, D, 2, 3, '#87CEEB', name="SiO2"))
+            # PR bị tách đôi (Trái/Phải)
+            fig.add_trace(make_box(0, 3, 0, D, 3, 4, '#FFB6C1', name="PR Left"))
+            fig.add_trace(make_box(7, W, 0, D, 3, 4, '#FFB6C1', name="PR Right"))
             
-            if step_index == 5: # Mũi tên Plasma
-                 for x in [4, 5, 6]:
-                    fig.add_annotation(x=x, y=2, ax=x, ay=5, arrowhead=2, arrowcolor="green", text="Etch")
+        # Step 5: Etching (Ăn mòn Oxide phần giữa)
+        elif step_index == 5:
+            # PR vẫn còn
+            fig.add_trace(make_box(0, 3, 0, D, 3, 4, '#FFB6C1', name="PR Left"))
+            fig.add_trace(make_box(7, W, 0, D, 3, 4, '#FFB6C1', name="PR Right"))
+            # Oxide bị tách đôi
+            fig.add_trace(make_box(0, 3, 0, D, 2, 3, '#87CEEB', name="SiO2 Left"))
+            fig.add_trace(make_box(7, W, 0, D, 2, 3, '#87CEEB', name="SiO2 Right"))
+            # Plasma (Xanh lá)
+            for x_line in np.linspace(3.5, 6.5, 5):
+                 fig.add_trace(go.Scatter3d(
+                    x=[x_line, x_line], y=[D/2, D/2], z=[5, 2],
+                    mode='lines', line=dict(color='green', width=3, dash='dash'), name="Plasma Etch"
+                ))
 
-        # Step 6: Stripping (Remove PR) -> Chỉ còn SiO2 hở
-        if step_index == 6:
-            pass # PR shape không được vẽ, SiO2 giữ nguyên từ bước 5
+        # Step 6: Stripping (Bỏ PR, chỉ còn Oxide hình cái cốc)
+        elif step_index == 6:
+            fig.add_trace(make_box(0, 3, 0, D, 2, 3, '#87CEEB', name="SiO2 Left"))
+            fig.add_trace(make_box(7, W, 0, D, 2, 3, '#87CEEB', name="SiO2 Right"))
+            
+        # Step 7: Doping (Bắn Ion vào giữa)
+        elif step_index == 7:
+            fig.add_trace(make_box(0, 3, 0, D, 2, 3, '#87CEEB', name="SiO2 Left"))
+            fig.add_trace(make_box(7, W, 0, D, 2, 3, '#87CEEB', name="SiO2 Right"))
+            # Vùng pha tạp N-type (Màu vàng trên bề mặt Si)
+            fig.add_trace(make_box(3, 7, 0, D, 1.8, 2, 'yellow', name="N-well"))
+            # Tia Ion (Cam)
+            for x_line in np.linspace(3.5, 6.5, 5):
+                 fig.add_trace(go.Scatter3d(
+                    x=[x_line, x_line], y=[D/2, D/2], z=[5, 2],
+                    mode='lines', line=dict(color='orange', width=4), name="Ion Beam"
+                ))
 
-        # Step 7: Doping
-        if step_index == 7:
-            for x in [4, 4.5, 5, 5.5, 6]:
-                fig.add_annotation(x=x, y=2, ax=x, ay=4, arrowhead=2, arrowcolor="orange", text="Ions" if x==5 else "")
-            # N-well
-            fig.add_shape(type="path", path="M 3.5 2 Q 5 1 6.5 2 Z", fillcolor="#FFFFE0", line_width=0)
-            fig.add_annotation(x=5, y=1.8, text="N-type Well")
-
-        fig.update_layout(title="Mô phỏng Mặt cắt Ngang (Cross-section)", height=300, margin=dict(l=20, r=20, t=40, b=20))
+        # Cấu hình Camera và Khung cảnh
+        fig.update_layout(
+            title="Mô phỏng 3D Quy trình Fab (Kéo chuột để xoay)",
+            scene=dict(
+                xaxis=dict(range=[0, 10], showbackground=False, visible=False),
+                yaxis=dict(range=[0, 6], showbackground=False, visible=False),
+                zaxis=dict(range=[0, 7], showbackground=False, visible=False),
+                aspectmode='manual',
+                aspectratio=dict(x=1, y=0.5, z=0.5), # Tỉ lệ hình hộp chữ nhật đẹp
+                camera=dict(
+                    eye=dict(x=1.5, y=1.5, z=1.2) # Góc nhìn Isometric
+                )
+            ),
+            margin=dict(l=0, r=0, t=30, b=0),
+            height=500
+        )
         return fig
 
     # Timeline điều khiển
     steps_data = {
         0: {"label": "Silicon Wafer", "desc": "Bắt đầu với phiến Silicon đơn tinh thể sạch."},
-        1: {"label": "Oxidation", "desc": "Oxy hóa nhiệt tạo lớp SiO2 (cách điện/bảo vệ)."},
-        2: {"label": "Spin Coat", "desc": "Phủ lớp chất cảm quang (Photoresist) nhạy sáng."},
-        3: {"label": "Exposure", "desc": "Chiếu tia cực tím (UV) qua mặt nạ (Mask) để in hình ảnh mạch."},
-        4: {"label": "Development", "desc": "Rửa sạch phần PR bị chiếu sáng, lộ ra lớp Oxide."},
-        5: {"label": "Etching", "desc": "Ăn mòn lớp Oxide không được PR che chắn."},
-        6: {"label": "Stripping", "desc": "Loại bỏ lớp PR còn lại, chỉ giữ lại mẫu Oxide cứng."},
-        7: {"label": "Doping", "desc": "Cấy ion (P/As) vào vùng hở để tạo vùng bán dẫn N."}
+        1: {"label": "Oxidation", "desc": "Oxy hóa nhiệt tạo lớp SiO2 (Màu xanh) cách điện."},
+        2: {"label": "Spin Coat", "desc": "Phủ lớp chất cảm quang Photoresist (Màu hồng)."},
+        3: {"label": "Exposure", "desc": "Chiếu tia UV (Tím) qua mặt nạ để in hình ảnh mạch."},
+        4: {"label": "Development", "desc": "Rửa sạch phần PR ở giữa đã bị chiếu sáng."},
+        5: {"label": "Etching", "desc": "Ăn mòn lớp Oxide ở giữa bằng Plasma (Xanh lá)."},
+        6: {"label": "Stripping", "desc": "Loại bỏ lớp PR, chỉ giữ lại mẫu Oxide đã định hình."},
+        7: {"label": "Doping", "desc": "Bắn Ion (Cam) vào vùng hở để tạo vùng bán dẫn N (Vàng)."}
     }
     
     step = st.select_slider("Quy trình dòng chảy (Process Flow):", options=list(steps_data.keys()), format_func=lambda x: steps_data[x]["label"])
@@ -555,7 +600,7 @@ elif selected_module == "5. Quy trình Fab (Fabrication)":
     st.info(f"👉 **Bước {step}: {steps_data[step]['label']}** - {steps_data[step]['desc']}")
     
     # Hiển thị
-    st.plotly_chart(draw_fab_step(step), use_container_width=True)
+    st.plotly_chart(draw_fab_step_3d(step), use_container_width=True)
 
 
 # --- FOOTER ---
@@ -566,3 +611,4 @@ st.markdown("""
     Built with Python & Streamlit for Educational Purpose.
 </div>
 """, unsafe_allow_html=True)
+
