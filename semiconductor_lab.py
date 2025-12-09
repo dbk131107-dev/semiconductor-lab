@@ -1,316 +1,424 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import plotly.express as px
+from scipy.constants import k, e  # Boltzmann constant, elementary charge
 
 # ==========================================
-# CẤU HÌNH TRANG (PAGE CONFIG)
+# CẤU HÌNH TRANG & CSS
 # ==========================================
 st.set_page_config(
-    page_title="Virtual Semiconductor Lab",
-    page_icon="⚡",
+    page_title="BK Semiconductor Lab",
+    page_icon="⚛️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ==========================================
-# CSS TÙY CHỈNH (CHO GIAO DIỆN ĐẸP HƠN)
-# ==========================================
+# Custom CSS cho giao diện đẹp hơn
 st.markdown("""
 <style>
-    .main-header {font-size: 2.5rem; color: #4F8BF9; font-weight: bold;}
-    .sub-header {font-size: 1.5rem; color: #333;}
-    .highlight {background-color: #f0f2f6; padding: 10px; border-radius: 10px;}
-    .stButton>button {width: 100%;}
+    .main-header {
+        font-size: 2.5rem; 
+        color: #0066cc; 
+        font-weight: 800; 
+        text-align: center;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #eee;
+        margin-bottom: 20px;
+    }
+    .sub-header {
+        font-size: 1.5rem; 
+        color: #333; 
+        border-left: 5px solid #0066cc; 
+        padding-left: 10px;
+        margin-top: 20px;
+    }
+    .info-box {
+        background-color: #f0f8ff; 
+        padding: 15px; 
+        border-radius: 8px; 
+        border: 1px solid #cce5ff;
+        margin-bottom: 15px;
+    }
+    .formula-box {
+        background-color: #fff;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+        margin: 10px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# MODULE 1: CALCULATOR (CÔNG CỤ TÍNH TOÁN)
+# SIDEBAR: THÔNG TIN SINH VIÊN
 # ==========================================
-def page_calculator():
-    st.markdown('<p class="main-header">🧮 Web Tính Toán Linh Kiện</p>', unsafe_allow_html=True)
-    st.write("Công cụ tính toán nhanh cho các định luật cơ bản.")
-
-    tab1, tab2 = st.tabs(["Định luật Ohm", "Mã màu điện trở"])
-
-    with tab1:
-        st.subheader("Tính toán Định luật Ohm (V = I * R)")
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            cal_type = st.selectbox("Bạn muốn tính gì?", ["Điện áp (V)", "Dòng điện (I)", "Điện trở (R)"])
-        
-        with col2:
-            if cal_type == "Điện áp (V)":
-                i_val = st.number_input("Dòng điện I (Ampe)", value=1.0)
-                r_val = st.number_input("Điện trở R (Ohm)", value=100.0)
-                result = i_val * r_val
-                unit = "V"
-            elif cal_type == "Dòng điện (I)":
-                v_val = st.number_input("Điện áp V (Volt)", value=5.0)
-                r_val = st.number_input("Điện trở R (Ohm)", value=100.0)
-                result = v_val / r_val if r_val != 0 else 0
-                unit = "A"
-            else:
-                v_val = st.number_input("Điện áp V (Volt)", value=5.0)
-                i_val = st.number_input("Dòng điện I (Ampe)", value=0.05)
-                result = v_val / i_val if i_val != 0 else 0
-                unit = "Ω"
-        
-        with col3:
-            st.markdown("### Kết quả:")
-            st.markdown(f"<h2 style='color: green;'>{result:.4f} {unit}</h2>", unsafe_allow_html=True)
-
-    with tab2:
-        st.subheader("Tra cứu mã màu điện trở (4 vạch)")
-        colors = {
-            "Đen (0)": 0, "Nâu (1)": 1, "Đỏ (2)": 2, "Cam (3)": 3, "Vàng (4)": 4,
-            "Lục (5)": 5, "Lam (6)": 6, "Tím (7)": 7, "Xám (8)": 8, "Trắng (9)": 9
-        }
-        multiplier = {
-            "Đen (x1)": 1, "Nâu (x10)": 10, "Đỏ (x100)": 100, "Cam (x1k)": 1000, 
-            "Vàng (x10k)": 10000, "Lục (x100k)": 100000, "Lam (x1M)": 1000000
-        }
-        
-        c1, c2, c3 = st.columns(3)
-        with c1: band1 = st.selectbox("Vạch 1", options=list(colors.keys()), index=1)
-        with c2: band2 = st.selectbox("Vạch 2", options=list(colors.keys()), index=0)
-        with c3: band3 = st.selectbox("Vạch 3 (Hệ số nhân)", options=list(multiplier.keys()), index=2)
-        
-        res_val = (colors[band1] * 10 + colors[band2]) * multiplier[band3]
-        
-        st.success(f"Giá trị điện trở: **{res_val:,} Ω** (hoặc {res_val/1000} kΩ)")
-
-# ==========================================
-# MODULE 2: LOGIC SIMULATOR (MÔ PHỎNG LOGIC)
-# ==========================================
-def page_logic_sim():
-    st.markdown('<p class="main-header">🔌 Mô phỏng Cổng Logic</p>', unsafe_allow_html=True)
-    st.write("Trực quan hóa hoạt động của các cổng logic số cơ bản.")
-
-    col_control, col_display = st.columns([1, 2])
-
-    with col_control:
-        st.markdown("### Cấu hình")
-        gate_type = st.selectbox("Chọn cổng Logic", ["AND", "OR", "NAND", "NOR", "XOR"])
-        input_a = st.toggle("Input A (0/1)", value=False)
-        input_b = st.toggle("Input B (0/1)", value=False)
-
-    # Xử lý Logic
-    a = 1 if input_a else 0
-    b = 1 if input_b else 0
-    out = 0
-    
-    if gate_type == "AND": out = a & b
-    elif gate_type == "OR": out = a | b
-    elif gate_type == "NAND": out = not (a & b)
-    elif gate_type == "NOR": out = not (a | b)
-    elif gate_type == "XOR": out = a ^ b
-    
-    out = 1 if out else 0
-
-    with col_display:
-        st.markdown("### Kết quả Mô phỏng")
-        
-        # Vẽ sơ đồ đơn giản bằng columns và emoji
-        c1, c2, c3 = st.columns([1,1,1])
-        with c1:
-            st.metric("Input A", value=a)
-            st.metric("Input B", value=b)
-        with c2:
-            st.markdown(f"<div style='text-align:center; padding-top:20px; font-size:40px;'>➡️ {gate_type} ➡️</div>", unsafe_allow_html=True)
-        with c3:
-            st.metric("Output Y", value=out, delta="High" if out else "Low")
-            
-        # Hiển thị bảng chân trị (Truth Table)
-        st.markdown("#### Bảng chân trị (Truth Table):")
-        data = []
-        for ia in [0, 1]:
-            for ib in [0, 1]:
-                res = 0
-                if gate_type == "AND": res = ia & ib
-                elif gate_type == "OR": res = ia | ib
-                elif gate_type == "NAND": res = int(not(ia & ib))
-                elif gate_type == "NOR": res = int(not(ia | ib))
-                elif gate_type == "XOR": res = ia ^ ib
-                
-                # Highlight dòng hiện tại
-                status = "👈 Hiện tại" if (ia == a and ib == b) else ""
-                data.append([ia, ib, res, status])
-                
-        df = pd.DataFrame(data, columns=["A", "B", "Y (Out)", "Trạng thái"])
-        st.dataframe(df, use_container_width=True)
-
-# ==========================================
-# MODULE 3: I-V PLOTTER (ĐẶC TUYẾN V-A)
-# ==========================================
-def page_iv_plotter():
-    st.markdown('<p class="main-header">📈 Vẽ Đặc Tuyến V-A (I-V Plotter)</p>', unsafe_allow_html=True)
-    st.markdown("Mô phỏng đặc tuyến Volt-Ampe của tiếp giáp P-N (Diode).")
-
-    # Sidebar điều khiển tham số
-    with st.expander("🛠️ Điều chỉnh thông số vật lý", expanded=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            temp_c = st.slider("Nhiệt độ (Celsius)", -50, 150, 27)
-            is_sat = st.slider("Dòng bão hòa ngược Is (pA)", 1.0, 100.0, 10.0) * 1e-12
-        with col2:
-            n_factor = st.slider("Hệ số lý tưởng (Ideality Factor n)", 1.0, 2.0, 1.5)
-            v_max = st.slider("Điện áp tối đa (V)", 0.5, 2.0, 1.0)
-
-    # Tính toán vật lý
-    k = 1.380649e-23  # Boltzmann constant
-    q = 1.60217663e-19 # Elementary charge
-    temp_k = temp_c + 273.15
-    vt = (k * temp_k) / q # Thermal voltage
-
-    # Tạo dữ liệu
-    v_range = np.linspace(-1.0, v_max, 500)
-    # Phương trình Shockley Diode: I = Is * (exp(V / (n*Vt)) - 1)
-    i_range = is_sat * (np.exp(v_range / (n_factor * vt)) - 1)
-
-    # Vẽ biểu đồ bằng Matplotlib
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(v_range, i_range * 1000, color='blue', linewidth=2, label=f'Diode @ {temp_c}°C')
-    ax.set_title("Đặc tuyến I-V của Diode")
-    ax.set_xlabel("Điện áp V (Volt)")
-    ax.set_ylabel("Dòng điện I (mA)")
-    ax.grid(True, linestyle='--', alpha=0.7)
-    ax.axhline(0, color='black', linewidth=1)
-    ax.axvline(0, color='black', linewidth=1)
-    ax.legend()
-
-    # Hiển thị trên Streamlit
-    st.pyplot(fig)
-    
-    st.info(f"""
-    **Thông số tính toán:**
-    - Nhiệt độ T = {temp_k:.2f} K
-    - Điện áp nhiệt Vt = {vt:.4f} V
+with st.sidebar:
+    st.markdown("## 👨‍🎓 Hồ sơ sinh viên")
+    st.info("""
+    **Họ tên:** Bảo Khang  
+    **MSV:** BEC250028  
+    **Ngành:** Công nghệ Bán dẫn  
+    **Trường:** Đại học Bách Khoa (Ví dụ)
     """)
-
-# ==========================================
-# MODULE 4: WIKI (KHO TRI THỨC)
-# ==========================================
-def page_wiki():
-    st.markdown('<p class="main-header">📚 Wiki Bán Dẫn Cá Nhân</p>', unsafe_allow_html=True)
-    
-    topics = {
-        "Chất bán dẫn (Semiconductor)": """
-        **Định nghĩa:** Là vật liệu có độ dẫn điện nằm giữa chất dẫn điện (như đồng) và chất cách điện (như thủy tinh).
-        
-        **Đặc điểm:** Độ dẫn điện có thể thay đổi nhờ:
-        * Nhiệt độ
-        * Ánh sáng
-        * Pha tạp chất (Doping)
-        
-        **Ví dụ:** Silicon (Si), Germanium (Ge), Gallium Arsenide (GaAs).
-        """,
-        "Vùng năng lượng (Band Theory)": r"""
-        Trong vật lý chất rắn, các trạng thái năng lượng của electron hình thành các vùng:
-        
-        1. **Valence Band (Vùng hóa trị):** Chứa các electron liên kết.
-        2. **Conduction Band (Vùng dẫn):** Chứa các electron tự do dẫn điện.
-        3. **Band Gap ($E_g$):** Khoảng cách năng lượng giữa vùng hóa trị và vùng dẫn.
-        
-        $$ E_g(\text{Si}) \approx 1.12 \text{ eV} $$
-        """,
-        "Pha tạp (Doping)": """
-        Quá trình thêm tạp chất vào mạng tinh thể tinh khiết để thay đổi tính chất điện.
-        
-        * **Loại n (n-type):** Pha tạp chất nhóm V (P, As) $\rightarrow$ dư Electron.
-        * **Loại p (p-type):** Pha tạp chất nhóm III (B, Ga) $\rightarrow$ dư Lỗ trống (Holes).
-        """
-    }
-
-    selection = st.selectbox("Chọn chủ đề cần tra cứu:", list(topics.keys()))
     
     st.markdown("---")
-    st.markdown(f"## {selection}")
-    st.markdown(topics[selection])
-    
-    if selection == "Vùng năng lượng (Band Theory)":
-        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Band_structure_filling_diagram.svg/440px-Band_structure_filling_diagram.svg.png", caption="Cấu trúc vùng năng lượng")
+    st.markdown("### 🧭 Điều hướng")
+    page = st.radio("Chọn Module học tập:", 
+        ["Trang chủ", 
+         "1. Cấu trúc Tinh thể (3D)", 
+         "2. Vật lý Bán dẫn (Fermi)", 
+         "3. Phân tích Mạch Diode (Q-point)", 
+         "4. Quy trình Fab (Chi tiết)"])
 
 # ==========================================
-# MODULE 5: FAB PROCESS (QUY TRÌNH SẢN XUẤT)
+# HELPER FUNCTIONS (HÀM HỖ TRỢ VẼ 3D)
 # ==========================================
-def page_fab_process():
-    st.markdown('<p class="main-header">🏭 Quy trình Sản xuất Chip (Fab)</p>', unsafe_allow_html=True)
-    st.write("Mô phỏng quy trình Photolithography cơ bản.")
+def plot_crystal_structure(structure_type):
+    """Hàm vẽ cấu trúc tinh thể 3D sử dụng Plotly"""
+    
+    # Định nghĩa toạ độ nguyên tử cho các cấu trúc cơ bản
+    atoms_x, atoms_y, atoms_z = [], [], []
+    
+    if structure_type == "Simple Cubic (SC)":
+        # 8 đỉnh của hình lập phương
+        points = [[0,0,0], [1,0,0], [0,1,0], [0,0,1], 
+                  [1,1,0], [1,0,1], [0,1,1], [1,1,1]]
+        
+    elif structure_type == "Body-Centered Cubic (BCC)":
+        # SC + 1 điểm ở tâm
+        points = [[0,0,0], [1,0,0], [0,1,0], [0,0,1], 
+                  [1,1,0], [1,0,1], [0,1,1], [1,1,1], [0.5, 0.5, 0.5]]
+                  
+    elif structure_type == "Face-Centered Cubic (FCC)":
+        # SC + 6 tâm các mặt
+        points = [[0,0,0], [1,0,0], [0,1,0], [0,0,1], 
+                  [1,1,0], [1,0,1], [0,1,1], [1,1,1],
+                  [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5],
+                  [0.5, 0.5, 1], [0.5, 1, 0.5], [1, 0.5, 0.5]]
+    
+    # Silicon structure (Diamond) is complex, representing via text explanation in V1, 
+    # but here let's stick to basics for clarity.
+    
+    for p in points:
+        atoms_x.append(p[0])
+        atoms_y.append(p[1])
+        atoms_z.append(p[2])
 
-    steps = ["1. Chuẩn bị Wafer", "2. Oxi hóa (Oxidation)", "3. Phủ quang trở (Photoresist)", 
-             "4. Chiếu sáng (Exposure)", "5. Ăn mòn (Etching)", "6. Loại bỏ quang trở"]
-    
-    selected_step = st.radio("Chọn bước trong quy trình:", steps)
+    fig = go.Figure(data=[go.Scatter3d(
+        x=atoms_x, y=atoms_y, z=atoms_z,
+        mode='markers',
+        marker=dict(
+            size=12,
+            color=atoms_z,                # Set color to z axis
+            colorscale='Viridis',   # Choose a colorscale
+            opacity=0.9
+        )
+    )])
 
-    st.markdown("---")
+    # Vẽ khung hình lập phương
+    lines = [
+        [[0,0,0], [1,0,0]], [[0,0,0], [0,1,0]], [[0,0,0], [0,0,1]],
+        [[1,0,0], [1,1,0]], [[1,0,0], [1,0,1]],
+        [[0,1,0], [1,1,0]], [[0,1,0], [0,1,1]],
+        [[0,0,1], [1,0,1]], [[0,0,1], [0,1,1]],
+        [[1,1,0], [1,1,1]], [[1,0,1], [1,1,1]], [[0,1,1], [1,1,1]]
+    ]
     
-    col_img, col_desc = st.columns([1, 1])
+    for line in lines:
+        fig.add_trace(go.Scatter3d(
+            x=[line[0][0], line[1][0]],
+            y=[line[0][1], line[1][1]],
+            z=[line[0][2], line[1][2]],
+            mode='lines',
+            line=dict(color='black', width=2),
+            showlegend=False
+        ))
+
+    fig.update_layout(
+        scene=dict(
+            xaxis=dict(title='X', showgrid=False, zeroline=False, showticklabels=False),
+            yaxis=dict(title='Y', showgrid=False, zeroline=False, showticklabels=False),
+            zaxis=dict(title='Z', showgrid=False, zeroline=False, showticklabels=False),
+        ),
+        margin=dict(l=0, r=0, b=0, t=0),
+        height=500
+    )
+    return fig
+
+# ==========================================
+# MODULE 1: CẤU TRÚC TINH THỂ 3D
+# ==========================================
+def page_crystal():
+    st.markdown('<div class="main-header">Mô Phỏng Mạng Tinh Thể 3D</div>', unsafe_allow_html=True)
     
-    with col_desc:
-        st.subheader(f"Chi tiết: {selected_step}")
-        if "1" in selected_step:
-            st.write("Wafer Silicon tinh khiết được cắt ra từ thanh đơn tinh thể (Ingot). Bề mặt được đánh bóng như gương.")
-        elif "2" in selected_step:
-            st.write("Tạo một lớp $SiO_2$ mỏng trên bề mặt wafer để cách điện và bảo vệ.")
-            st.latex(r"Si + O_2 \xrightarrow{Heat} SiO_2")
-        elif "3" in selected_step:
-            st.write("Phủ một lớp hóa chất nhạy sáng (Photoresist) lên bề mặt wafer bằng phương pháp quay (Spin coating).")
-        elif "4" in selected_step:
-            st.write("Ánh sáng UV chiếu qua mặt nạ (Mask) xuống wafer. Phần quang trở tiếp xúc ánh sáng sẽ thay đổi tính chất hóa học.")
-        elif "5" in selected_step:
-            st.write("Dùng hóa chất hoặc plasma để ăn mòn lớp $SiO_2$ tại những nơi không được quang trở bảo vệ.")
-        elif "6" in selected_step:
-            st.write("Loại bỏ lớp quang trở còn thừa, để lại mẫu mạch in trên lớp $SiO_2$.")
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown('<div class="sub-header">Lý thuyết</div>', unsafe_allow_html=True)
+        st.write("""
+        Vật liệu bán dẫn (như Silicon) có cấu trúc tinh thể sắp xếp có trật tự. Hiểu về mạng tinh thể giúp giải thích tính chất điện của vật liệu.
+        """)
+        
+        type_struct = st.selectbox(
+            "Chọn kiểu mạng tinh thể:", 
+            ["Simple Cubic (SC)", "Body-Centered Cubic (BCC)", "Face-Centered Cubic (FCC)"]
+        )
+        
+        st.info(f"""
+        **Đang hiển thị: {type_struct}**
+        
+        * **SC:** Đơn giản nhất, nguyên tử chỉ ở góc. (Hiếm gặp).
+        * **BCC:** Có thêm 1 nguyên tử ở tâm khối. (Ví dụ: Na, K).
+        * **FCC:** Có thêm nguyên tử ở tâm các mặt. (Ví dụ: Al, Cu, Au).
+        * **Lưu ý:** Silicon có cấu trúc **Kim cương (Diamond Cubic)**, là biến thể của 2 mạng FCC lồng vào nhau.
+        """)
+        
+    with col2:
+        st.markdown("**Tương tác: Dùng chuột để xoay, lăn chuột để phóng to/thu nhỏ**")
+        fig = plot_crystal_structure(type_struct)
+        st.plotly_chart(fig, use_container_width=True)
+
+# ==========================================
+# MODULE 2: VẬT LÝ BÁN DẪN (FERMI)
+# ==========================================
+def page_physics():
+    st.markdown('<div class="main-header">Phân bố Fermi-Dirac & Nồng độ Hạt tải</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    Trong vật lý bán dẫn, xác suất tìm thấy một electron ở mức năng lượng $E$ được xác định bởi hàm phân bố Fermi-Dirac $f(E)$.
+    """)
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown('<div class="formula-box">$$ f(E) = \\frac{1}{1 + e^{\\frac{E - E_F}{k_B T}}} $$</div>', unsafe_allow_html=True)
+        
+        st.write("**Điều chỉnh tham số:**")
+        temp_k = st.slider("Nhiệt độ T (Kelvin)", 0, 1000, 300, step=50)
+        ef_pos = st.slider("Mức Fermi ($E_F$) so với $E_i$ (eV)", -0.5, 0.5, 0.0, step=0.01)
+        
+        st.markdown("""
+        * **T = 0K:** Xác suất là hàm bậc thang (Step function).
+        * **T tăng:** Electron có xác suất cao hơn nhảy lên mức năng lượng cao.
+        * **Ef:** Mức năng lượng mà tại đó xác suất tìm thấy electron là 50%.
+        """)
+
+    with col2:
+        # Tính toán
+        E = np.linspace(-1, 1, 500) # Energy range from -1eV to 1eV
+        kb_eV = 8.617e-5 # Boltzmann constant in eV/K
+        
+        if temp_k == 0:
+            f_E = np.where(E < ef_pos, 1, 0)
+        else:
+            f_E = 1 / (1 + np.exp((E - ef_pos) / (kb_eV * temp_k)))
+            
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=f_E, y=E, mode='lines', name='f(E)', line=dict(color='firebrick', width=3)))
+        
+        # Thêm đường tham chiếu
+        fig.add_hline(y=ef_pos, line_dash="dash", line_color="green", annotation_text="Fermi Level (Ef)")
+        fig.add_hline(y=0.55, line_dash="dot", line_color="blue", annotation_text="Conduction Band (Ec)")
+        fig.add_hline(y=-0.55, line_dash="dot", line_color="blue", annotation_text="Valence Band (Ev)")
+        
+        fig.update_layout(
+            title=f"Hàm phân bố Fermi-Dirac tại T={temp_k}K",
+            xaxis_title="Xác suất f(E)",
+            yaxis_title="Năng lượng E (eV)",
+            height=500
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+# ==========================================
+# MODULE 3: PHÂN TÍCH MẠCH (LOAD LINE)
+# ==========================================
+def page_circuit():
+    st.markdown('<div class="main-header">Phân tích Điểm làm việc (Q-Point)</div>', unsafe_allow_html=True)
+    
+    st.write("""
+    Kỹ sư bán dẫn không chỉ cần hiểu linh kiện mà còn phải hiểu cách nó hoạt động trong mạch. 
+    Phương pháp **Đường tải (Load Line)** giúp tìm điểm làm việc tĩnh (Q-point) của Diode.
+    """)
+    
+    c1, c2 = st.columns([1, 2])
+    
+    with c1:
+        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Diode_load_line_circuit.svg/320px-Diode_load_line_circuit.svg.png", caption="Mạch Diode nối tiếp điện trở tải")
+        st.markdown("### Thông số mạch:")
+        v_source = st.number_input("Nguồn DC ($V_{DD}$)", value=5.0, min_value=1.0)
+        r_load = st.number_input("Điện trở tải $R$ ($\Omega$)", value=220.0, min_value=10.0)
+        
+    with c2:
+        # 1. Vẽ đặc tuyến Diode (Shockley equation)
+        vt = 0.026 # Thermal voltage at 300K ~ 26mV
+        Is = 1e-12 # Saturation current
+        n = 1.5    # Ideality factor
+        
+        v_diode = np.linspace(0, 1.5, 200)
+        i_diode = Is * (np.exp(v_diode / (n * vt)) - 1) * 1000 # convert to mA
+        
+        # 2. Vẽ đường tải (Load Line): V_DD = I*R + V_D => I = (V_DD - V_D)/R
+        i_loadline = (v_source - v_diode) / r_load * 1000 # convert to mA
+        
+        # 3. Tìm giao điểm (Q-point) - Giải gần đúng
+        idx = np.argwhere(np.diff(np.sign(i_diode - i_loadline))).flatten()
+        if len(idx) > 0:
+            q_v = v_diode[idx[0]]
+            q_i = i_diode[idx[0]]
+        else:
+            q_v, q_i = 0, 0
+
+        fig = go.Figure()
+        
+        # Plot Diode Curve
+        fig.add_trace(go.Scatter(x=v_diode, y=i_diode, name='Đặc tuyến Diode', line=dict(color='blue')))
+        
+        # Plot Load Line
+        fig.add_trace(go.Scatter(x=v_diode, y=i_loadline, name='Đường tải (Load Line)', line=dict(color='red', dash='dash')))
+        
+        # Plot Q-point
+        fig.add_trace(go.Scatter(x=[q_v], y=[q_i], mode='markers+text', 
+                                 text=[f'Q-point ({q_v:.2f}V, {q_i:.2f}mA)'], 
+                                 textposition="top left",
+                                 marker=dict(size=12, color='green', symbol='x'),
+                                 name='Điểm làm việc Q'))
+
+        fig.update_layout(
+            title="Biểu đồ xác định điểm làm việc Q",
+            xaxis_title="Điện áp Diode $V_D$ (V)",
+            yaxis_title="Dòng điện $I_D$ (mA)",
+            yaxis_range=[0, v_source/r_load*1000*1.2],
+            xaxis_range=[0, 1.5]
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        if len(idx) > 0:
+            st.success(f"📌 **Kết luận:** Tại mạch này, Diode sẽ ghim áp ở **{q_v:.2f} V** và dòng điện chạy qua là **{q_i:.2f} mA**.")
+
+# ==========================================
+# MODULE 4: QUY TRÌNH FAB (VISUAL TIMELINE)
+# ==========================================
+def page_fab():
+    st.markdown('<div class="main-header">Quy trình Sản xuất Chip (Photolithography)</div>', unsafe_allow_html=True)
+    
+    tabs = st.tabs(["1. Oxidation", "2. Photoresist", "3. Exposure", "4. Etching", "5. Stripping"])
+    
+    # Hàm vẽ mô phỏng mặt cắt ngang wafer đơn giản bằng Plotly Shapes
+    def draw_wafer(step):
+        fig = go.Figure()
+        
+        # Silicon Substrate (Base)
+        fig.add_shape(type="rect", x0=0, y0=0, x1=10, y1=2, 
+                      fillcolor="gray", line=dict(color="black"), name="Silicon")
+        fig.add_annotation(x=5, y=1, text="Silicon Substrate", showarrow=False, font=dict(color="white"))
+        
+        # Oxide Layer
+        if step >= 1:
+            fig.add_shape(type="rect", x0=0, y0=2, x1=10, y1=2.5, 
+                          fillcolor="blue", line=dict(color="black"), opacity=0.5)
+            fig.add_annotation(x=1, y=2.25, text="SiO2", showarrow=False, font=dict(color="white"))
+            
+        # Photoresist
+        if step == 2 or step == 3:
+            fig.add_shape(type="rect", x0=0, y0=2.5, x1=10, y1=3.0, 
+                          fillcolor="red", line=dict(color="black"), opacity=0.6)
+            fig.add_annotation(x=5, y=2.75, text="Photoresist (PR)", showarrow=False)
+            
+        # Exposure Mask
+        if step == 3:
+            # Mask blocking light
+            fig.add_shape(type="rect", x0=3, y0=3.5, x1=7, y1=3.6, fillcolor="black") 
+            fig.add_annotation(x=5, y=3.8, text="Mask", showarrow=False)
+            # UV Light arrows
+            for x in [1, 2, 8, 9]:
+                fig.add_annotation(x=x, y=3.5, ax=x, ay=4.5, arrowheader=2, arrowcolor="purple", text="UV")
+            # Exposed PR changes color
+            fig.add_shape(type="rect", x0=0, y0=2.5, x1=3, y1=3.0, fillcolor="pink", line_width=0)
+            fig.add_shape(type="rect", x0=7, y0=2.5, x1=10, y1=3.0, fillcolor="pink", line_width=0)
+
+        # Etching (After developing PR and etching Oxide)
+        if step == 4:
+            # Remaining PR in center (Positive PR assumption)
+            fig.add_shape(type="rect", x0=3, y0=2.5, x1=7, y1=3.0, fillcolor="red", line=dict(color="black"))
+            # Oxide etched away on sides
+            fig.add_shape(type="rect", x0=3, y0=2, x1=7, y1=2.5, fillcolor="blue", opacity=0.5)
+        
+        # Stripping
+        if step == 5:
+            # Only Oxide pattern remains
+            fig.add_shape(type="rect", x0=3, y0=2, x1=7, y1=2.5, fillcolor="blue", opacity=0.5)
+
+        fig.update_xaxes(visible=False, range=[-1, 11])
+        fig.update_yaxes(visible=False, range=[0, 5])
+        fig.update_layout(height=300, margin=dict(t=0, b=0, l=0, r=0), paper_bgcolor="rgba(0,0,0,0)")
+        return fig
+
+    with tabs[0]:
+        st.markdown("### 1. Oxi hóa nhiệt (Thermal Oxidation)")
+        st.write("Tạo lớp $SiO_2$ cách điện trên bề mặt Si.")
+        st.latex(r"Si (rắn) + O_2 (khí) \xrightarrow{900-1200^\circ C} SiO_2 (rắn)")
+        st.plotly_chart(draw_wafer(1), use_container_width=True)
+        
+    with tabs[1]:
+        st.markdown("### 2. Phủ quang trở (Spin Coating)")
+        st.write("Phủ một lớp chất nhạy sáng (Photoresist - PR) lên bề mặt.")
+        st.plotly_chart(draw_wafer(2), use_container_width=True)
+
+    with tabs[2]:
+        st.markdown("### 3. Chiếu sáng (Exposure)")
+        st.write("Chiếu tia UV qua mặt nạ (Mask). Phần PR tiếp xúc UV sẽ bị biến đổi hóa học (trở nên dễ tan hoặc khó tan tùy loại PR).")
+        st.plotly_chart(draw_wafer(3), use_container_width=True)
+        
+    with tabs[3]:
+        st.markdown("### 4. Ăn mòn (Etching)")
+        st.write("Dùng axit (Wet etching) hoặc Plasma (Dry etching) để ăn mòn lớp $SiO_2$ tại những vị trí không được PR bảo vệ.")
+        st.plotly_chart(draw_wafer(4), use_container_width=True)
+
+    with tabs[4]:
+        st.markdown("### 5. Loại bỏ PR (Stripping)")
+        st.write("Loại bỏ lớp PR còn sót lại, để lại mẫu $SiO_2$ mong muốn trên đế Si.")
+        st.plotly_chart(draw_wafer(5), use_container_width=True)
+
+# ==========================================
+# MAIN ROUTER
+# ==========================================
+if page == "Trang chủ":
+    st.markdown('<div class="main-header">SEMICONDUCTOR ENGINEERING PORTFOLIO</div>', unsafe_allow_html=True)
+    
+    col_intro, col_img = st.columns([1.5, 1])
+    
+    with col_intro:
+        st.markdown(f"""
+        ### Xin chào, tôi là Bảo Khang 👋
+        **Mã sinh viên:** BEC250028
+        
+        Chào mừng đến với "Phòng thí nghiệm ảo" của tôi. Đây là nơi tôi tổng hợp, trực quan hóa và mô phỏng các kiến thức chuyên ngành **Công nghệ Bán dẫn**.
+        
+        #### Mục tiêu dự án:
+        1.  **Trực quan hóa:** Biến các công thức vật lý khô khan thành mô hình 3D.
+        2.  **Tính toán:** Hỗ trợ giải bài tập chuyên ngành nhanh chóng.
+        3.  **Lưu trữ:** Xây dựng kho tri thức cá nhân (Second Brain).
+        """)
+        
+        st.info("💡 **Mẹo:** Truy cập menu bên trái để trải nghiệm các mô phỏng 3D!")
 
     with col_img:
-        # Trong thực tế bạn sẽ dùng ảnh thật, ở đây dùng placeholder minh họa
-        st.info(f"Đang hiển thị mô phỏng bước: {selected_step}")
-        st.progress((steps.index(selected_step) + 1) / len(steps))
-        st.warning("Imagine a simplified animation of the cross-section here.")
+        # Placeholder image for a futuristic chip
+        st.image("https://images.unsplash.com/photo-1555664424-778a1e5e1b48?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80", 
+                 caption="Chip Design Visualization", use_column_width=True)
 
-
-# ==========================================
-# TRANG CHỦ & ĐIỀU HƯỚNG
-# ==========================================
-def main():
-    # Sidebar Menu
-    st.sidebar.title("Virtual Lab 🔬")
-    st.sidebar.info("Sinh viên: Năm Nhất Bán Dẫn")
-    
-    menu = ["Trang chủ", "1. Calculator 🧮", "2. Wiki Kiến thức 📚", 
-            "3. I-V Plotter 📈", "4. Fab Process 🏭", "5. Logic Sim 🔌"]
-    choice = st.sidebar.radio("Điều hướng Modules", menu)
-
-    # Router logic
-    if choice == "Trang chủ":
-        st.markdown('<p class="main-header">Chào mừng đến với Virtual Semiconductor Lab 🚀</p>', unsafe_allow_html=True)
-        st.markdown("""
-        Đây là dự án học tập tích hợp các công cụ hỗ trợ ngành Kỹ thuật Bán dẫn.
-        
-        ### Các phân khu chức năng:
-        1.  **Utilities:** Tính toán nhanh điện trở, định luật Ohm.
-        2.  **Knowledge Base:** Wiki cá nhân lưu trữ kiến thức.
-        3.  **Visualization:** Vẽ đặc tuyến I-V của Diode/Transistor.
-        4.  **Process:** Mô phỏng quy trình sản xuất Chip.
-        5.  **Simulation:** Mô phỏng mạch số Digital Logic.
-        
-        👈 **Hãy chọn một module bên menu trái để bắt đầu!**
-        """)
-        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Semiconductor_production_line.jpg/640px-Semiconductor_production_line.jpg", caption="Phòng sạch sản xuất bán dẫn")
-        
-    elif "1" in choice:
-        page_calculator()
-    elif "2" in choice:
-        page_wiki()
-    elif "3" in choice:
-        page_iv_plotter()
-    elif "4" in choice:
-        page_fab_process()
-    elif "5" in choice:
-        page_logic_sim()
+elif page == "1. Cấu trúc Tinh thể (3D)":
+    page_crystal()
+elif page == "2. Vật lý Bán dẫn (Fermi)":
+    page_physics()
+elif page == "3. Phân tích Mạch Diode (Q-point)":
+    page_circuit()
+elif page == "4. Quy trình Fab (Chi tiết)":
+    page_fab()
 
 if __name__ == "__main__":
+
     main()
