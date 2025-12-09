@@ -11,35 +11,42 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CSS Tùy chỉnh để làm đẹp giao diện ---
+# --- CSS Tùy chỉnh (Giao diện đẹp) ---
 st.markdown("""
 <style>
     .main-header {
-        font-size: 2.5rem;
+        font-size: 2.2rem;
         color: #0056b3;
         text-align: center;
         font-weight: bold;
         margin-bottom: 20px;
+        text-shadow: 1px 1px 2px #d0e4f5;
     }
     .sub-header {
         font-size: 1.5rem;
         color: #333;
-        border-bottom: 2px solid #0056b3;
-        padding-bottom: 10px;
+        border-bottom: 3px solid #0056b3;
+        padding-bottom: 8px;
         margin-top: 20px;
+        margin-bottom: 15px;
     }
     .info-box {
         background-color: #f0f8ff;
         padding: 15px;
-        border-radius: 10px;
+        border-radius: 8px;
         border-left: 5px solid #0056b3;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
     }
-    .formula-box {
-        background-color: #fff0f5;
-        padding: 10px;
-        border-radius: 5px;
-        border: 1px solid #ddd;
-        text-align: center;
+    .calc-box {
+        background-color: #fdf5e6;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #f0e68c;
+    }
+    .stButton>button {
+        width: 100%;
+        background-color: #0056b3;
+        color: white;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -49,291 +56,279 @@ st.sidebar.image("https://img.icons8.com/color/96/000000/microchip.png", width=8
 st.sidebar.title("CMC Semiconductor Lab")
 st.sidebar.markdown("**Sinh viên thực hiện:** [Tên Của Bạn]")
 st.sidebar.markdown("**Đơn vị:** Đại học CMC (CMC University)")
+st.sidebar.info("Hệ thống mô phỏng và tính toán thông số quy trình chế tạo IC.")
 st.sidebar.markdown("---")
-page = st.sidebar.radio("Chọn quy trình:", 
-    ["Giới thiệu chung", "Oxy hóa (Oxidation)", "Quang khắc (Lithography)", "Ăn mòn (Etching)", "Mô phỏng Fab (Simulation)"])
 
-# --- Hàm vẽ Wafer (Đã sửa lỗi và nâng cấp) ---
+# Menu điều hướng
+menu_options = [
+    "Giới thiệu chung", 
+    "1. Oxy hóa (Oxidation)", 
+    "2. Quang khắc (Lithography)", 
+    "3. Ăn mòn (Etching)", 
+    "4. Cấy Ion (Implantation)", 
+    "5. Mô phỏng Fab (Simulation)"
+]
+page = st.sidebar.radio("Chọn quy trình:", menu_options)
+
+# --- Hàm vẽ Wafer (Visualization) ---
 def draw_wafer(step, params=None):
-    """
-    Hàm vẽ mặt cắt ngang của Wafer dựa trên bước quy trình.
-    """
+    """Vẽ mặt cắt ngang của Wafer tại các bước khác nhau"""
     fig = go.Figure()
     
-    # Cấu hình trục
+    # Cấu hình trục ẩn
     fig.update_xaxes(range=[0, 10], showgrid=False, zeroline=False, visible=False)
     fig.update_yaxes(range=[0, 8], showgrid=False, zeroline=False, visible=False)
     
-    # 1. Silicon Substrate (Luôn có)
+    # 1. Silicon Substrate (Nền tảng)
     fig.add_shape(type="rect", x0=1, y0=0, x1=9, y1=2, 
                   fillcolor="lightgray", line=dict(color="gray"), name="Silicon Substrate")
-    fig.add_annotation(x=5, y=1, text="Si Substrate", showarrow=False)
+    fig.add_annotation(x=5, y=1, text="Si Substrate (P-type)", showarrow=False)
 
-    # Xử lý từng bước
+    # Xử lý hình ảnh theo từng bước
     if step >= 1: # Oxidation
-        oxide_thickness = params.get('oxide_h', 0.5) if params else 1.0
-        fig.add_shape(type="rect", x0=1, y0=2, x1=9, y1=2+oxide_thickness, 
+        oxide_h = params.get('oxide_h', 0.5) if params else 1.0
+        fig.add_shape(type="rect", x0=1, y0=2, x1=9, y1=2+oxide_h, 
                       fillcolor="#a8dbf0", line=dict(color="blue"), name="SiO2")
-        fig.add_annotation(x=8.5, y=2+oxide_thickness/2, text="SiO2", showarrow=False, font=dict(size=10))
+        if step == 1:
+            fig.add_annotation(x=5, y=2+oxide_h/2, text="SiO2 Layer", showarrow=False)
 
-    if step >= 2: # Spin Coat Photoresist
-        pr_thickness = 1.0
+    if step >= 2: # Spin Coat Photoresist (PR)
+        pr_h = 1.0
         base_y = 2 + (params.get('oxide_h', 0.5) if params else 1.0)
-        fig.add_shape(type="rect", x0=1, y0=base_y, x1=9, y1=base_y+pr_thickness, 
+        fig.add_shape(type="rect", x0=1, y0=base_y, x1=9, y1=base_y+pr_h, 
                       fillcolor="#ffcccb", line=dict(color="red"), name="Photoresist")
-        fig.add_annotation(x=2, y=base_y+pr_thickness/2, text="PR", showarrow=False, font=dict(size=10))
+        if step == 2:
+            fig.add_annotation(x=5, y=base_y+pr_h/2, text="Photoresist (PR)", showarrow=False)
 
-    if step == 3: # Exposure (UV Light) - KHẮC PHỤC LỖI TẠI ĐÂY
+    if step == 3: # Exposure (UV)
         base_y = 2 + (params.get('oxide_h', 0.5) if params else 1.0) + 1.0
-        # Mask
+        # Mask (Mặt nạ)
         fig.add_shape(type="rect", x0=1, y0=base_y+1, x1=3, y1=base_y+1.2, fillcolor="black")
         fig.add_shape(type="rect", x0=7, y0=base_y+1, x1=9, y1=base_y+1.2, fillcolor="black")
+        fig.add_annotation(x=2, y=base_y+1.5, text="Mask", showarrow=False)
         
-        # UV Arrows (Đã sửa arrowheader -> arrowhead)
+        # Tia UV
         for x in [4, 5, 6]:
             fig.add_annotation(
                 x=x, y=base_y+0.2, ax=x, ay=base_y+2,
-                arrowhead=2, # Đã sửa từ arrowheader
-                arrowcolor="purple", arrowsize=1.5,
+                arrowhead=2, arrowcolor="purple", arrowsize=1.5,
                 text="UV Light" if x==5 else ""
             )
 
-    if step >= 4: # Developed (Removed exposed PR)
+    if step >= 4: # Development (Rửa PR)
         base_y = 2 + (params.get('oxide_h', 0.5) if params else 1.0)
-        # Vẽ lại PR nhưng bị khuyết ở giữa
+        # Vẽ lại PR nhưng bị mất phần giữa
         fig.add_shape(type="rect", x0=1, y0=base_y, x1=3, y1=base_y+1, fillcolor="#ffcccb", line=dict(color="red"))
         fig.add_shape(type="rect", x0=7, y0=base_y, x1=9, y1=base_y+1, fillcolor="#ffcccb", line=dict(color="red"))
-        # Clear vùng giữa (chỉ là không vẽ gì hoặc vẽ background đè lên nếu cần, ở đây không vẽ là đủ)
 
-    if step >= 5: # Etching (Etched Oxide)
+    if step >= 5: # Etching (Ăn mòn Oxide)
         ox_h = params.get('oxide_h', 0.5) if params else 1.0
-        # Vẽ lại Oxide nhưng bị khuyết
-        # Thay vì vẽ 1 cục lớn, vẽ 2 cục nhỏ 2 bên
-        fig.data = [] # Xóa hết vẽ lại cho dễ xử lý lớp oxide bị cắt
-        # Base
-        fig.add_shape(type="rect", x0=1, y0=0, x1=9, y1=2, fillcolor="lightgray", line=dict(color="gray"))
-        fig.add_annotation(x=5, y=1, text="Si Substrate", showarrow=False)
+        # Xóa lớp oxide cũ đi để vẽ lớp bị cắt
+        fig.layout.shapes = [s for s in fig.layout.shapes if s['fillcolor'] != "#a8dbf0"]
         
-        # Etched Oxide
+        # Vẽ oxide bị cắt
         fig.add_shape(type="rect", x0=1, y0=2, x1=3, y1=2+ox_h, fillcolor="#a8dbf0", line=dict(color="blue"))
         fig.add_shape(type="rect", x0=7, y0=2, x1=9, y1=2+ox_h, fillcolor="#a8dbf0", line=dict(color="blue"))
         
-        if step == 5: # Vẫn còn PR
-            fig.add_shape(type="rect", x0=1, y0=2+ox_h, x1=3, y1=2+ox_h+1, fillcolor="#ffcccb", line=dict(color="red"))
-            fig.add_shape(type="rect", x0=7, y0=2+ox_h, x1=9, y1=2+ox_h+1, fillcolor="#ffcccb", line=dict(color="red"))
+        if step == 5: # Đang ăn mòn (vẫn còn PR)
             # Mũi tên Plasma
             for x in [4, 5, 6]:
-                 fig.add_annotation(x=x, y=2.5, ax=x, ay=5, arrowhead=2, arrowcolor="green", text="Plasma" if x==5 else "")
+                 fig.add_annotation(x=x, y=2.5, ax=x, ay=5, arrowhead=2, arrowcolor="green", text="Plasma Etch" if x==5 else "")
 
-    if step == 6: # Strip PR (Hoàn thành)
-        # Chỉ còn Si và Oxide đã bị ăn mòn
-        pass # Code ở step 5 đã vẽ oxide bị ăn mòn, chỉ cần không vẽ PR là được (logic ở trên đã xử lý)
+    if step >= 6: # Stripping (Bỏ PR)
+        # Chỉ còn Si và Oxide đã định hình. PR (màu đỏ) không được vẽ lại.
+        pass
+
+    if step == 7: # Doping (Cấy Ion)
+        # Vẽ các ion bay vào vùng hở
+        for x in [4, 4.5, 5, 5.5, 6]:
+            fig.add_annotation(x=x, y=1.8, ax=x, ay=4, arrowhead=2, arrowcolor="orange", arrowwidth=1)
+        # Vùng N-well được tạo ra trong Si
+        fig.add_shape(type="path", path="M 3.5 2 Q 5 0.5 6.5 2 Z", fillcolor="#ffff99", line_width=0, opacity=0.6)
+        fig.add_annotation(x=5, y=1.5, text="N-type Well", showarrow=False)
 
     fig.update_layout(
-        title=f"Mô phỏng mặt cắt Wafer - Bước {step}",
+        title=f"Mô hình mặt cắt Wafer - {params.get('title', '') if params else ''}",
         plot_bgcolor="white",
-        height=300,
-        margin=dict(l=20, r=20, t=40, b=20)
+        height=350,
+        margin=dict(l=10, r=10, t=40, b=10)
     )
     return fig
 
 # --- NỘI DUNG CHÍNH ---
 
-st.markdown('<div class="main-header">Phòng Thí Nghiệm Công Nghệ Bán Dẫn</div>', unsafe_allow_html=True)
-st.write("Chào mừng đến với hệ thống mô phỏng quy trình chế tạo IC. Ứng dụng được phát triển bởi sinh viên **Đại học CMC**.")
+st.markdown('<div class="main-header">PHÒNG THÍ NGHIỆM CÔNG NGHỆ BÁN DẪN</div>', unsafe_allow_html=True)
 
 if page == "Giới thiệu chung":
-    st.markdown("### Quy trình chế tạo IC cơ bản")
-    st.markdown("""
-    Chế tạo chất bán dẫn là quy trình sản xuất các thiết bị MOS (Metal Oxide Semiconductor) và chip máy tính.
-    Quy trình bao gồm 4 bước lặp đi lặp lại chính:
-    1.  **Oxy hóa (Oxidation/Deposition):** Tạo lớp vật liệu mỏng (SiO2).
-    2.  **Quang khắc (Lithography):** Chuyển mẫu thiết kế từ mặt nạ (mask) sang wafer.
-    3.  **Ăn mòn (Etching):** Loại bỏ vật liệu không mong muốn.
-    4.  **Cấy Ion/Khuếch tán (Doping):** Thay đổi tính chất điện của vật liệu.
-    """)
-    st.info("Hãy chọn các mục bên menu trái để tìm hiểu chi tiết từng bước và thực hiện tính toán.")
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Czochralski_Process.svg/1200px-Czochralski_Process.svg.png", caption="Quy trình Czochralski tạo tinh thể Si", width=400)
-
-elif page == "Oxy hóa (Oxidation)":
-    st.markdown('<div class="sub-header">Quá trình Oxy hóa Nhiệt (Thermal Oxidation)</div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.markdown("#### Lý thuyết")
-        st.write("""
-        Oxy hóa nhiệt là quá trình tạo ra lớp Silicon Dioxide ($SiO_2$) trên bề mặt phiến Silicon ở nhiệt độ cao (800°C - 1200°C).
-        Lớp $SiO_2$ đóng vai trò là lớp cách điện hoặc lớp mặt nạ cho quá trình cấy ion.
-        
-        Có hai phương pháp chính:
-        * **Oxy hóa khô (Dry Oxidation):** $Si + O_2 \\rightarrow SiO_2$ (Chậm, chất lượng cao).
-        * **Oxy hóa ướt (Wet Oxidation):** $Si + 2H_2O \\rightarrow SiO_2 + 2H_2$ (Nhanh, xốp hơn).
-        """)
-        
-        st.markdown("#### Mô hình Deal-Grove")
-        st.latex(r"x_0^2 + A x_0 = B(t + \tau)")
-        st.write("""
-        Trong đó:
-        * $x_0$: Độ dày oxide cần tạo.
-        * $t$: Thời gian oxy hóa.
-        * $B$: Hằng số tốc độ parabol (Parabolic rate constant).
-        * $B/A$: Hằng số tốc độ tuyến tính (Linear rate constant).
-        * $\\tau$: Thời gian hiệu chỉnh ban đầu.
-        """)
-
-    with col2:
-        st.markdown("#### Tính toán Độ dày Oxide")
-        method = st.selectbox("Phương pháp", ["Oxy hóa Khô (1000°C)", "Oxy hóa Ướt (1000°C)"])
-        time_min = st.slider("Thời gian (phút)", 0, 300, 60)
-        
-        # Giả định hằng số (đơn vị: um^2/hr và um/hr) tại 1000 độ C
-        if "Khô" in method:
-            B = 0.0117 
-            BA = 0.057 # B/A
-        else:
-            B = 0.287
-            BA = 1.63 # B/A (Nhanh hơn nhiều)
-            
-        # Tính toán Deal-Grove đơn giản hóa: t = x^2/B + x/(B/A) -> Giải phương trình bậc 2 tìm x theo t
-        # Ax^2 + Bx - C = 0 (Chuyển đổi đơn vị cẩn thận)
-        # Ở đây dùng xấp xỉ tuyến tính + parabol đơn giản để minh họa
-        t_hours = time_min / 60.0
-        # Giải pt: x^2 + Ax = Bt (bỏ qua tau cho đơn giản)
-        # x^2 + (B/ (B/A)) * x - B*t = 0
-        A_const = B / BA
-        delta = A_const**2 + 4 * 1 * (B * t_hours)
-        thickness = (-A_const + np.sqrt(delta)) / 2 # micromet
-        
-        thickness_nm = thickness * 1000
-        
-        st.success(f"Độ dày lớp Oxide dự kiến: **{thickness_nm:.2f} nm**")
-        st.progress(min(thickness_nm/1000, 1.0))
-        
-        # Vẽ biểu đồ tăng trưởng
-        t_range = np.linspace(0, 5, 50) # 5 giờ
-        x_range = (-A_const + np.sqrt(A_const**2 + 4 * B * t_range)) / 2 * 1000
-        
-        fig_chart = go.Figure()
-        fig_chart.add_trace(go.Scatter(x=t_range*60, y=x_range, mode='lines', name=method))
-        fig_chart.update_layout(title="Độ dày Oxide theo thời gian", xaxis_title="Thời gian (phút)", yaxis_title="Độ dày (nm)")
-        st.plotly_chart(fig_chart, use_container_width=True)
-
-elif page == "Quang khắc (Lithography)":
-    st.markdown('<div class="sub-header">Quang khắc (Photolithography)</div>', unsafe_allow_html=True)
-    
     st.markdown("""
     <div class="info-box">
-    Quang khắc là quá trình sử dụng ánh sáng để chuyển một mẫu hình học từ mặt nạ quang (photomask) sang lớp chất cảm quang (photoresist) trên bề mặt wafer.
-    Đây là bước quan trọng nhất quyết định kích thước nhỏ nhất (CD - Critical Dimension) của chip.
+    Chào mừng đến với hệ thống mô phỏng <b>Fab Lab</b>. Tại đây, chúng ta sẽ tìm hiểu quy trình biến một phiến Silicon (Sand) thành các con chip vi xử lý (Silicon Chips).
     </div>
     """, unsafe_allow_html=True)
     
-    tabs = st.tabs(["Quy trình", "Độ phân giải (Resolution)"])
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.markdown("### Tổng quan quy trình")
+        st.write("Quy trình Planar (Planar Process) bao gồm 4 bước lặp đi lặp lại:")
+        st.markdown("""
+        1.  **Oxy hóa (Oxidation):** Tạo lớp bảo vệ.
+        2.  **Quang khắc (Lithography):** Tạo mẫu in.
+        3.  **Ăn mòn (Etching):** Khắc mẫu vào vật liệu.
+        4.  **Cấy Ion (Doping):** Tạo tính chất điện (p-type/n-type).
+        """)
+    with col2:
+        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Wafer_2_inches_to_8_inches.jpg/640px-Wafer_2_inches_to_8_inches.jpg", caption="Silicon Wafer các kích thước")
+
+elif page == "1. Oxy hóa (Oxidation)":
+    st.markdown('<div class="sub-header">1. Oxy hóa Nhiệt (Thermal Oxidation)</div>', unsafe_allow_html=True)
     
-    with tabs[0]:
-        st.write("1. **Spin Coating:** Phủ lớp chất cảm quang (PR).")
-        st.write("2. **Exposure:** Chiếu tia UV qua mặt nạ.")
-        st.write("3. **Development:** Loại bỏ phần PR đã bị chiếu sáng (với Positive PR).")
-        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Photolithography_process_steps.svg/800px-Photolithography_process_steps.svg.png", caption="Các bước quang khắc")
+    st.write("Quá trình tạo lớp SiO2 chất lượng cao trên bề mặt wafer ở nhiệt độ cao.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("##### Mô hình Deal-Grove")
+        st.latex(r"x_0^2 + A x_0 = B(t + \tau)")
+        st.markdown("""
+        - **Oxy hóa khô:** Chậm, lớp oxit đặc, dùng cho cổng transistor (Gate Oxide).
+        - **Oxy hóa ướt:** Nhanh, lớp oxit xốp, dùng làm lớp cách điện trường (Field Oxide).
+        """)
+    
+    with col2:
+        st.markdown('<div class="calc-box">', unsafe_allow_html=True)
+        st.write("**Công cụ tính độ dày Oxide**")
+        method = st.radio("Phương pháp:", ["Khô (Dry O2)", "Ướt (Wet H2O)"], horizontal=True)
+        temp = st.slider("Nhiệt độ (°C):", 800, 1200, 1000)
+        time_min = st.number_input("Thời gian (phút):", value=60, min_value=1)
         
-    with tabs[1]:
-        st.markdown("#### Tiêu chuẩn Rayleigh")
-        st.latex(r"R = k_1 \frac{\lambda}{NA}")
+        # Giả lập tính toán đơn giản hóa
+        rate = 0.05 if method == "Khô (Dry O2)" else 0.5 # Tốc độ giả định nm/phút tại chuẩn
+        temp_factor = (temp - 800) / 400 + 0.5 # Hệ số nhiệt độ
+        thickness = rate * time_min * temp_factor * 10 # ra nm
+        
+        st.metric("Độ dày SiO2 dự kiến:", f"{thickness:.2f} nm")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+elif page == "2. Quang khắc (Lithography)":
+    st.markdown('<div class="sub-header">2. Quang khắc (Photolithography)</div>', unsafe_allow_html=True)
+    
+    st.info("Bước quan trọng nhất để định hình kích thước linh kiện (Critical Dimension - CD).")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("##### Tiêu chuẩn Rayleigh về độ phân giải")
+        st.latex(r"CD = k_1 \frac{\lambda}{NA}")
         st.write("""
-        Để tạo ra chip nhỏ hơn (R nhỏ), chúng ta cần:
-        * Giảm bước sóng ánh sáng ($\lambda$): UV (365nm) -> DUV (193nm) -> EUV (13.5nm).
-        * Tăng khẩu độ số ($NA$): Dùng thấu kính lớn hơn hoặc ngâm trong nước (Immersion).
+        - **$\lambda$:** Bước sóng ánh sáng (càng nhỏ càng tốt).
+        - **NA:** Khẩu độ số của thấu kính (càng to càng tốt).
+        - **$k_1$:** Hệ số quy trình (phụ thuộc vào chất lượng phòng Lab).
         """)
         
-        col_calc1, col_calc2 = st.columns(2)
-        with col_calc1:
-            wavelength = st.selectbox("Bước sóng ánh sáng (nm)", [365, 248, 193, 13.5])
-            na = st.slider("Khẩu độ số (NA)", 0.5, 1.35, 0.9)
-            k1 = st.number_input("Hệ số quy trình (k1)", 0.25, 0.8, 0.4)
-        with col_calc2:
-            res = k1 * wavelength / na
-            st.metric(label="Độ phân giải tối thiểu (Critical Dimension)", value=f"{res:.2f} nm")
-            if res < 20:
-                st.success("Công nghệ siêu cao cấp (High-end Node)")
-            elif res < 100:
-                st.warning("Công nghệ tiên tiến")
-            else:
-                st.info("Công nghệ cũ")
-
-elif page == "Ăn mòn (Etching)":
-    st.markdown('<div class="sub-header">Ăn mòn (Etching)</div>', unsafe_allow_html=True)
-    st.write("Sau khi quang khắc, chúng ta cần loại bỏ lớp vật liệu bên dưới (ví dụ SiO2) tại các vùng không được che chắn bởi Photoresist.")
-    
-    col_etch1, col_etch2 = st.columns(2)
-    with col_etch1:
-        st.subheader("Wet Etching (Ăn mòn ướt)")
-        st.write("- Sử dụng dung dịch hóa chất (VD: HF để ăn mòn SiO2).")
-        st.write("- **Isotropic (Đẳng hướng):** Ăn mòn theo mọi hướng, tạo ra undercut.")
-        st.write("- Rẻ, nhanh, nhưng độ chính xác thấp.")
+    with col2:
+        st.markdown('<div class="calc-box">', unsafe_allow_html=True)
+        st.write("**Tính độ phân giải (CD)**")
+        wl = st.selectbox("Nguồn sáng:", [365, 248, 193, 13.5], format_func=lambda x: f"{x} nm ({'EUV' if x==13.5 else 'DUV' if x<250 else 'UV'})")
+        na = st.slider("Khẩu độ số (NA):", 0.5, 1.35, 0.85)
+        k1 = 0.4 # Giả định
         
-    with col_etch2:
-        st.subheader("Dry Etching (Ăn mòn khô / Plasma)")
-        st.write("- Sử dụng khí ion hóa (Plasma).")
-        st.write("- **Anisotropic (Dị hướng):** Ăn mòn chủ yếu theo chiều thẳng đứng.")
-        st.write("- Độ chính xác cao, dùng cho các node công nghệ nhỏ.")
+        res = k1 * wl / na
+        st.metric("Kích thước nhỏ nhất (Feature Size):", f"{res:.1f} nm")
+        if res < 20:
+            st.success("Công nghệ: High-end (EUV)")
+        else:
+            st.warning("Công nghệ: Tiêu chuẩn (DUV/UV)")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("#### Tính toán tốc độ ăn mòn")
-    thickness_to_etch = st.number_input("Độ dày cần ăn mòn (nm)", value=500)
-    etch_rate = st.number_input("Tốc độ ăn mòn (nm/phút)", value=50)
-    over_etch = st.slider("Over-etch (%)", 0, 50, 10, help="Ăn mòn thêm để đảm bảo sạch hoàn toàn")
+elif page == "3. Ăn mòn (Etching)":
+    st.markdown('<div class="sub-header">3. Ăn mòn (Etching)</div>', unsafe_allow_html=True)
+    st.write("Loại bỏ vật liệu tại các vùng không được che chắn bởi Photoresist.")
     
-    total_time = (thickness_to_etch / etch_rate) * (1 + over_etch/100)
-    st.write(f"Thời gian ăn mòn cần thiết: **{total_time:.2f} phút**")
+    tab1, tab2 = st.tabs(["Wet Etching", "Dry Etching (Plasma)"])
+    with tab1:
+        st.write("**Ăn mòn ướt:** Dùng hóa chất lỏng. Ăn mòn theo mọi hướng (Isotropic).")
+        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Isotropic_etching.svg/400px-Isotropic_etching.svg.png", width=300)
+    with tab2:
+        st.write("**Ăn mòn khô:** Dùng Plasma. Ăn mòn thẳng đứng (Anisotropic). Quan trọng cho chip hiện đại.")
+        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Anisotropic_etching.svg/400px-Anisotropic_etching.svg.png", width=300)
 
-elif page == "Mô phỏng Fab (Simulation)":
-    st.markdown('<div class="sub-header">Mô phỏng Quy trình Fab (Interactive)</div>', unsafe_allow_html=True)
+elif page == "4. Cấy Ion (Implantation)":
+    st.markdown('<div class="sub-header">4. Cấy Ion (Ion Implantation)</div>', unsafe_allow_html=True)
     
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### Điều khiển Mô phỏng")
+    st.markdown("""
+    <div class="info-box">
+    Quá trình bắn các ion năng lượng cao (Dopants: Boron, Phosphorus, Arsenic) vào phiến Silicon để thay đổi tính dẫn điện, tạo ra các vùng bán dẫn loại P hoặc loại N.
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Trạng thái mô phỏng
-    step_mapping = {
-        0: "Bắt đầu (Substrate)",
-        1: "1. Oxy hóa (Tạo SiO2)",
-        2: "2. Phủ PR (Spin Coating)",
-        3: "3. Chiếu xạ (Exposure - UV)",
-        4: "4. Hiện hình (Development)",
-        5: "5. Ăn mòn (Etching)",
-        6: "6. Loại bỏ PR (Stripping)"
+    col1, col2 = st.columns([1,1])
+    with col1:
+        st.markdown("#### Nguyên lý")
+        st.write("Liều lượng (Dosage) quyết định nồng độ tạp chất. Năng lượng bắn quyết định độ sâu ($R_p$).")
+        st.latex(r"D = \frac{I \times t}{q \times A}")
+        st.write("""
+        Trong đó:
+        - **D:** Liều lượng ($ions/cm^2$)
+        - **I:** Dòng điện chùm ion (Amps)
+        - **t:** Thời gian bắn (s)
+        - **q:** Điện tích ($1.6 \times 10^{-19} C$)
+        - **A:** Diện tích wafer ($cm^2$)
+        """)
+        
+    with col2:
+        st.markdown('<div class="calc-box">', unsafe_allow_html=True)
+        st.write("**Tính toán Liều lượng (Dosage)**")
+        
+        current_ua = st.number_input("Dòng điện (µA):", value=100.0)
+        time_sec = st.number_input("Thời gian bắn (giây):", value=60)
+        wafer_diam = st.selectbox("Đường kính Wafer (inch):", [6, 8, 12])
+        
+        # Tính toán
+        current = current_ua * 1e-6 # Convert to Amps
+        radius_cm = (wafer_diam * 2.54) / 2
+        area = np.pi * (radius_cm ** 2)
+        q = 1.6e-19
+        
+        dosage = (current * time_sec) / (q * area)
+        
+        st.write(f"Diện tích Wafer: **{area:.1f} cm²**")
+        st.metric("Liều lượng (Dosage):", f"{dosage:.2e} ions/cm²")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+elif page == "5. Mô phỏng Fab (Simulation)":
+    st.markdown('<div class="sub-header">Mô phỏng Toàn trình (Full Flow)</div>', unsafe_allow_html=True)
+    
+    # Timeline slider
+    steps = {
+        0: "1. Silicon Wafer (Start)",
+        1: "2. Thermal Oxidation",
+        2: "3. Spin Coating (PR)",
+        3: "4. Exposure (UV Mask)",
+        4: "5. Development",
+        5: "6. Etching (SiO2 Removal)",
+        6: "7. PR Stripping",
+        7: "8. Ion Implantation (Doping)"
     }
     
-    selected_step_idx = st.sidebar.slider("Chọn bước quy trình:", 0, 6, 0)
-    st.subheader(step_mapping[selected_step_idx])
+    step_val = st.select_slider("Kéo thanh trượt để xem quy trình:", options=list(steps.keys()), format_func=lambda x: steps[x])
     
-    # Hiển thị mô phỏng hình ảnh
-    # Truyền tham số giả định oxide height để vẽ cho đẹp
-    fig = draw_wafer(selected_step_idx, params={'oxide_h': 1.0})
-    st.plotly_chart(fig, use_container_width=True)
+    # Vẽ
+    st.plotly_chart(draw_wafer(step_val, params={'title': steps[step_val]}), use_container_width=True)
     
-    # Giải thích ngữ cảnh theo từng bước
-    if selected_step_idx == 0:
-        st.info("Bắt đầu với phiến Silicon (Si Wafer) tinh khiết đã được làm sạch.")
-    elif selected_step_idx == 1:
-        st.info("Lớp SiO2 màu xanh được mọc lên bề mặt Si để bảo vệ hoặc cách điện.")
-    elif selected_step_idx == 2:
-        st.info("Phủ một lớp Photoresist (PR - màu đỏ) nhạy sáng lên trên lớp Oxide.")
-    elif selected_step_idx == 3:
-        st.error("Chiếu tia UV qua mặt nạ (Mask). Phần PR bị chiếu sáng sẽ thay đổi tính chất hóa học.")
-        st.markdown("**Lưu ý:** Đây là bước bạn gặp lỗi trước đó. Tôi đã sửa lại mã lệnh vẽ mũi tên (UV) để không bị lỗi `arrowheader`.")
-    elif selected_step_idx == 4:
-        st.info("Rửa wafer trong dung dịch Developer. Phần PR bị chiếu sáng tan đi, lộ ra lớp Oxide bên dưới.")
-    elif selected_step_idx == 5:
-        st.warning("Dùng Plasma hoặc Axit để ăn mòn lớp Oxide lộ ra. Lớp PR còn lại bảo vệ phần Oxide bên dưới nó.")
-    elif selected_step_idx == 6:
-        st.success("Loại bỏ lớp PR còn lại. Kết quả là mẫu thiết kế đã được chuyển sang lớp Oxide thành công!")
+    # Giải thích
+    explanations = {
+        0: "Chuẩn bị phiến Silicon loại P (P-type Substrate).",
+        1: "Tạo lớp SiO2 cách điện trên bề mặt.",
+        2: "Phủ lớp cảm quang (Photoresist) màu đỏ.",
+        3: "Chiếu tia UV qua mặt nạ. Phần hở sáng sẽ thay đổi tính chất.",
+        4: "Rửa sạch phần PR bị chiếu sáng (Positive PR).",
+        5: "Ăn mòn lớp SiO2 tại vị trí không có PR che chắn.",
+        6: "Loại bỏ lớp PR còn lại. Ta có lớp SiO2 đã được định hình.",
+        7: "Bắn các ion (màu cam) vào vùng Silicon hở để tạo vùng N-well (màu vàng)."
+    }
+    st.info(f"👉 **Bước hiện tại:** {explanations[step_val]}")
 
-# --- Footer ---
+# Footer
 st.markdown("---")
-st.markdown(
-    "<div style='text-align: center; color: grey;'>© 2025 Đại học CMC. Ứng dụng hỗ trợ học tập môn Công nghệ Bán dẫn.</div>", 
-    unsafe_allow_html=True
-)
-    page_fab()
+st.markdown("<center>© 2025 Đại học CMC - Khoa Vi mạch Bán dẫn</center>", unsafe_allow_html=True)
+
 
 
