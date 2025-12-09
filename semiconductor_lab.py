@@ -419,6 +419,3 @@ elif page == "3. Phân tích Mạch Diode (Q-point)":
 elif page == "4. Quy trình Fab (Chi tiết)":
     page_fab()
 
-if __name__ == "__main__":
-
-    main()
