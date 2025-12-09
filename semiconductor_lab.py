@@ -1,421 +1,339 @@
 import streamlit as st
+import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
-from scipy.constants import k, e  # Boltzmann constant, elementary charge
 
-# ==========================================
-# CẤU HÌNH TRANG & CSS
-# ==========================================
+# --- Cấu hình trang ---
 st.set_page_config(
-    page_title="BK Semiconductor Lab",
-    page_icon="⚛️",
+    page_title="Phòng Lab Bán Dẫn - Đại học CMC",
+    page_icon="💾",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS cho giao diện đẹp hơn
+# --- CSS Tùy chỉnh để làm đẹp giao diện ---
 st.markdown("""
 <style>
     .main-header {
-        font-size: 2.5rem; 
-        color: #0066cc; 
-        font-weight: 800; 
+        font-size: 2.5rem;
+        color: #0056b3;
         text-align: center;
-        padding-bottom: 20px;
-        border-bottom: 2px solid #eee;
+        font-weight: bold;
         margin-bottom: 20px;
     }
     .sub-header {
-        font-size: 1.5rem; 
-        color: #333; 
-        border-left: 5px solid #0066cc; 
-        padding-left: 10px;
+        font-size: 1.5rem;
+        color: #333;
+        border-bottom: 2px solid #0056b3;
+        padding-bottom: 10px;
         margin-top: 20px;
     }
     .info-box {
-        background-color: #f0f8ff; 
-        padding: 15px; 
-        border-radius: 8px; 
-        border: 1px solid #cce5ff;
-        margin-bottom: 15px;
+        background-color: #f0f8ff;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #0056b3;
     }
     .formula-box {
-        background-color: #fff;
+        background-color: #fff0f5;
         padding: 10px;
         border-radius: 5px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: 1px solid #ddd;
         text-align: center;
-        margin: 10px 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# SIDEBAR: THÔNG TIN SINH VIÊN
-# ==========================================
-with st.sidebar:
-    st.markdown("## 👨‍🎓 Hồ sơ sinh viên")
-    st.info("""
-    **Họ tên:** Bảo Khang  
-    **MSV:** BEC250028  
-    **Ngành:** Công nghệ Bán dẫn  
-    **Trường:** Đại học Bách Khoa (Ví dụ)
-    """)
-    
-    st.markdown("---")
-    st.markdown("### 🧭 Điều hướng")
-    page = st.radio("Chọn Module học tập:", 
-        ["Trang chủ", 
-         "1. Cấu trúc Tinh thể (3D)", 
-         "2. Vật lý Bán dẫn (Fermi)", 
-         "3. Phân tích Mạch Diode (Q-point)", 
-         "4. Quy trình Fab (Chi tiết)"])
+# --- Sidebar ---
+st.sidebar.image("https://img.icons8.com/color/96/000000/microchip.png", width=80)
+st.sidebar.title("CMC Semiconductor Lab")
+st.sidebar.markdown("**Sinh viên thực hiện:** [Tên Của Bạn]")
+st.sidebar.markdown("**Đơn vị:** Đại học CMC (CMC University)")
+st.sidebar.markdown("---")
+page = st.sidebar.radio("Chọn quy trình:", 
+    ["Giới thiệu chung", "Oxy hóa (Oxidation)", "Quang khắc (Lithography)", "Ăn mòn (Etching)", "Mô phỏng Fab (Simulation)"])
 
-# ==========================================
-# HELPER FUNCTIONS (HÀM HỖ TRỢ VẼ 3D)
-# ==========================================
-def plot_crystal_structure(structure_type):
-    """Hàm vẽ cấu trúc tinh thể 3D sử dụng Plotly"""
+# --- Hàm vẽ Wafer (Đã sửa lỗi và nâng cấp) ---
+def draw_wafer(step, params=None):
+    """
+    Hàm vẽ mặt cắt ngang của Wafer dựa trên bước quy trình.
+    """
+    fig = go.Figure()
     
-    # Định nghĩa toạ độ nguyên tử cho các cấu trúc cơ bản
-    atoms_x, atoms_y, atoms_z = [], [], []
+    # Cấu hình trục
+    fig.update_xaxes(range=[0, 10], showgrid=False, zeroline=False, visible=False)
+    fig.update_yaxes(range=[0, 8], showgrid=False, zeroline=False, visible=False)
     
-    if structure_type == "Simple Cubic (SC)":
-        # 8 đỉnh của hình lập phương
-        points = [[0,0,0], [1,0,0], [0,1,0], [0,0,1], 
-                  [1,1,0], [1,0,1], [0,1,1], [1,1,1]]
+    # 1. Silicon Substrate (Luôn có)
+    fig.add_shape(type="rect", x0=1, y0=0, x1=9, y1=2, 
+                  fillcolor="lightgray", line=dict(color="gray"), name="Silicon Substrate")
+    fig.add_annotation(x=5, y=1, text="Si Substrate", showarrow=False)
+
+    # Xử lý từng bước
+    if step >= 1: # Oxidation
+        oxide_thickness = params.get('oxide_h', 0.5) if params else 1.0
+        fig.add_shape(type="rect", x0=1, y0=2, x1=9, y1=2+oxide_thickness, 
+                      fillcolor="#a8dbf0", line=dict(color="blue"), name="SiO2")
+        fig.add_annotation(x=8.5, y=2+oxide_thickness/2, text="SiO2", showarrow=False, font=dict(size=10))
+
+    if step >= 2: # Spin Coat Photoresist
+        pr_thickness = 1.0
+        base_y = 2 + (params.get('oxide_h', 0.5) if params else 1.0)
+        fig.add_shape(type="rect", x0=1, y0=base_y, x1=9, y1=base_y+pr_thickness, 
+                      fillcolor="#ffcccb", line=dict(color="red"), name="Photoresist")
+        fig.add_annotation(x=2, y=base_y+pr_thickness/2, text="PR", showarrow=False, font=dict(size=10))
+
+    if step == 3: # Exposure (UV Light) - KHẮC PHỤC LỖI TẠI ĐÂY
+        base_y = 2 + (params.get('oxide_h', 0.5) if params else 1.0) + 1.0
+        # Mask
+        fig.add_shape(type="rect", x0=1, y0=base_y+1, x1=3, y1=base_y+1.2, fillcolor="black")
+        fig.add_shape(type="rect", x0=7, y0=base_y+1, x1=9, y1=base_y+1.2, fillcolor="black")
         
-    elif structure_type == "Body-Centered Cubic (BCC)":
-        # SC + 1 điểm ở tâm
-        points = [[0,0,0], [1,0,0], [0,1,0], [0,0,1], 
-                  [1,1,0], [1,0,1], [0,1,1], [1,1,1], [0.5, 0.5, 0.5]]
-                  
-    elif structure_type == "Face-Centered Cubic (FCC)":
-        # SC + 6 tâm các mặt
-        points = [[0,0,0], [1,0,0], [0,1,0], [0,0,1], 
-                  [1,1,0], [1,0,1], [0,1,1], [1,1,1],
-                  [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5],
-                  [0.5, 0.5, 1], [0.5, 1, 0.5], [1, 0.5, 0.5]]
-    
-    # Silicon structure (Diamond) is complex, representing via text explanation in V1, 
-    # but here let's stick to basics for clarity.
-    
-    for p in points:
-        atoms_x.append(p[0])
-        atoms_y.append(p[1])
-        atoms_z.append(p[2])
+        # UV Arrows (Đã sửa arrowheader -> arrowhead)
+        for x in [4, 5, 6]:
+            fig.add_annotation(
+                x=x, y=base_y+0.2, ax=x, ay=base_y+2,
+                arrowhead=2, # Đã sửa từ arrowheader
+                arrowcolor="purple", arrowsize=1.5,
+                text="UV Light" if x==5 else ""
+            )
 
-    fig = go.Figure(data=[go.Scatter3d(
-        x=atoms_x, y=atoms_y, z=atoms_z,
-        mode='markers',
-        marker=dict(
-            size=12,
-            color=atoms_z,                # Set color to z axis
-            colorscale='Viridis',   # Choose a colorscale
-            opacity=0.9
-        )
-    )])
+    if step >= 4: # Developed (Removed exposed PR)
+        base_y = 2 + (params.get('oxide_h', 0.5) if params else 1.0)
+        # Vẽ lại PR nhưng bị khuyết ở giữa
+        fig.add_shape(type="rect", x0=1, y0=base_y, x1=3, y1=base_y+1, fillcolor="#ffcccb", line=dict(color="red"))
+        fig.add_shape(type="rect", x0=7, y0=base_y, x1=9, y1=base_y+1, fillcolor="#ffcccb", line=dict(color="red"))
+        # Clear vùng giữa (chỉ là không vẽ gì hoặc vẽ background đè lên nếu cần, ở đây không vẽ là đủ)
 
-    # Vẽ khung hình lập phương
-    lines = [
-        [[0,0,0], [1,0,0]], [[0,0,0], [0,1,0]], [[0,0,0], [0,0,1]],
-        [[1,0,0], [1,1,0]], [[1,0,0], [1,0,1]],
-        [[0,1,0], [1,1,0]], [[0,1,0], [0,1,1]],
-        [[0,0,1], [1,0,1]], [[0,0,1], [0,1,1]],
-        [[1,1,0], [1,1,1]], [[1,0,1], [1,1,1]], [[0,1,1], [1,1,1]]
-    ]
-    
-    for line in lines:
-        fig.add_trace(go.Scatter3d(
-            x=[line[0][0], line[1][0]],
-            y=[line[0][1], line[1][1]],
-            z=[line[0][2], line[1][2]],
-            mode='lines',
-            line=dict(color='black', width=2),
-            showlegend=False
-        ))
+    if step >= 5: # Etching (Etched Oxide)
+        ox_h = params.get('oxide_h', 0.5) if params else 1.0
+        # Vẽ lại Oxide nhưng bị khuyết
+        # Thay vì vẽ 1 cục lớn, vẽ 2 cục nhỏ 2 bên
+        fig.data = [] # Xóa hết vẽ lại cho dễ xử lý lớp oxide bị cắt
+        # Base
+        fig.add_shape(type="rect", x0=1, y0=0, x1=9, y1=2, fillcolor="lightgray", line=dict(color="gray"))
+        fig.add_annotation(x=5, y=1, text="Si Substrate", showarrow=False)
+        
+        # Etched Oxide
+        fig.add_shape(type="rect", x0=1, y0=2, x1=3, y1=2+ox_h, fillcolor="#a8dbf0", line=dict(color="blue"))
+        fig.add_shape(type="rect", x0=7, y0=2, x1=9, y1=2+ox_h, fillcolor="#a8dbf0", line=dict(color="blue"))
+        
+        if step == 5: # Vẫn còn PR
+            fig.add_shape(type="rect", x0=1, y0=2+ox_h, x1=3, y1=2+ox_h+1, fillcolor="#ffcccb", line=dict(color="red"))
+            fig.add_shape(type="rect", x0=7, y0=2+ox_h, x1=9, y1=2+ox_h+1, fillcolor="#ffcccb", line=dict(color="red"))
+            # Mũi tên Plasma
+            for x in [4, 5, 6]:
+                 fig.add_annotation(x=x, y=2.5, ax=x, ay=5, arrowhead=2, arrowcolor="green", text="Plasma" if x==5 else "")
+
+    if step == 6: # Strip PR (Hoàn thành)
+        # Chỉ còn Si và Oxide đã bị ăn mòn
+        pass # Code ở step 5 đã vẽ oxide bị ăn mòn, chỉ cần không vẽ PR là được (logic ở trên đã xử lý)
 
     fig.update_layout(
-        scene=dict(
-            xaxis=dict(title='X', showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(title='Y', showgrid=False, zeroline=False, showticklabels=False),
-            zaxis=dict(title='Z', showgrid=False, zeroline=False, showticklabels=False),
-        ),
-        margin=dict(l=0, r=0, b=0, t=0),
-        height=500
+        title=f"Mô phỏng mặt cắt Wafer - Bước {step}",
+        plot_bgcolor="white",
+        height=300,
+        margin=dict(l=20, r=20, t=40, b=20)
     )
     return fig
 
-# ==========================================
-# MODULE 1: CẤU TRÚC TINH THỂ 3D
-# ==========================================
-def page_crystal():
-    st.markdown('<div class="main-header">Mô Phỏng Mạng Tinh Thể 3D</div>', unsafe_allow_html=True)
+# --- NỘI DUNG CHÍNH ---
+
+st.markdown('<div class="main-header">Phòng Thí Nghiệm Công Nghệ Bán Dẫn</div>', unsafe_allow_html=True)
+st.write("Chào mừng đến với hệ thống mô phỏng quy trình chế tạo IC. Ứng dụng được phát triển bởi sinh viên **Đại học CMC**.")
+
+if page == "Giới thiệu chung":
+    st.markdown("### Quy trình chế tạo IC cơ bản")
+    st.markdown("""
+    Chế tạo chất bán dẫn là quy trình sản xuất các thiết bị MOS (Metal Oxide Semiconductor) và chip máy tính.
+    Quy trình bao gồm 4 bước lặp đi lặp lại chính:
+    1.  **Oxy hóa (Oxidation/Deposition):** Tạo lớp vật liệu mỏng (SiO2).
+    2.  **Quang khắc (Lithography):** Chuyển mẫu thiết kế từ mặt nạ (mask) sang wafer.
+    3.  **Ăn mòn (Etching):** Loại bỏ vật liệu không mong muốn.
+    4.  **Cấy Ion/Khuếch tán (Doping):** Thay đổi tính chất điện của vật liệu.
+    """)
+    st.info("Hãy chọn các mục bên menu trái để tìm hiểu chi tiết từng bước và thực hiện tính toán.")
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Czochralski_Process.svg/1200px-Czochralski_Process.svg.png", caption="Quy trình Czochralski tạo tinh thể Si", width=400)
+
+elif page == "Oxy hóa (Oxidation)":
+    st.markdown('<div class="sub-header">Quá trình Oxy hóa Nhiệt (Thermal Oxidation)</div>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns([1, 2])
+    col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.markdown('<div class="sub-header">Lý thuyết</div>', unsafe_allow_html=True)
+        st.markdown("#### Lý thuyết")
         st.write("""
-        Vật liệu bán dẫn (như Silicon) có cấu trúc tinh thể sắp xếp có trật tự. Hiểu về mạng tinh thể giúp giải thích tính chất điện của vật liệu.
+        Oxy hóa nhiệt là quá trình tạo ra lớp Silicon Dioxide ($SiO_2$) trên bề mặt phiến Silicon ở nhiệt độ cao (800°C - 1200°C).
+        Lớp $SiO_2$ đóng vai trò là lớp cách điện hoặc lớp mặt nạ cho quá trình cấy ion.
+        
+        Có hai phương pháp chính:
+        * **Oxy hóa khô (Dry Oxidation):** $Si + O_2 \\rightarrow SiO_2$ (Chậm, chất lượng cao).
+        * **Oxy hóa ướt (Wet Oxidation):** $Si + 2H_2O \\rightarrow SiO_2 + 2H_2$ (Nhanh, xốp hơn).
         """)
         
-        type_struct = st.selectbox(
-            "Chọn kiểu mạng tinh thể:", 
-            ["Simple Cubic (SC)", "Body-Centered Cubic (BCC)", "Face-Centered Cubic (FCC)"]
-        )
-        
-        st.info(f"""
-        **Đang hiển thị: {type_struct}**
-        
-        * **SC:** Đơn giản nhất, nguyên tử chỉ ở góc. (Hiếm gặp).
-        * **BCC:** Có thêm 1 nguyên tử ở tâm khối. (Ví dụ: Na, K).
-        * **FCC:** Có thêm nguyên tử ở tâm các mặt. (Ví dụ: Al, Cu, Au).
-        * **Lưu ý:** Silicon có cấu trúc **Kim cương (Diamond Cubic)**, là biến thể của 2 mạng FCC lồng vào nhau.
+        st.markdown("#### Mô hình Deal-Grove")
+        st.latex(r"x_0^2 + A x_0 = B(t + \tau)")
+        st.write("""
+        Trong đó:
+        * $x_0$: Độ dày oxide cần tạo.
+        * $t$: Thời gian oxy hóa.
+        * $B$: Hằng số tốc độ parabol (Parabolic rate constant).
+        * $B/A$: Hằng số tốc độ tuyến tính (Linear rate constant).
+        * $\\tau$: Thời gian hiệu chỉnh ban đầu.
         """)
-        
-    with col2:
-        st.markdown("**Tương tác: Dùng chuột để xoay, lăn chuột để phóng to/thu nhỏ**")
-        fig = plot_crystal_structure(type_struct)
-        st.plotly_chart(fig, use_container_width=True)
 
-# ==========================================
-# MODULE 2: VẬT LÝ BÁN DẪN (FERMI)
-# ==========================================
-def page_physics():
-    st.markdown('<div class="main-header">Phân bố Fermi-Dirac & Nồng độ Hạt tải</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown("#### Tính toán Độ dày Oxide")
+        method = st.selectbox("Phương pháp", ["Oxy hóa Khô (1000°C)", "Oxy hóa Ướt (1000°C)"])
+        time_min = st.slider("Thời gian (phút)", 0, 300, 60)
+        
+        # Giả định hằng số (đơn vị: um^2/hr và um/hr) tại 1000 độ C
+        if "Khô" in method:
+            B = 0.0117 
+            BA = 0.057 # B/A
+        else:
+            B = 0.287
+            BA = 1.63 # B/A (Nhanh hơn nhiều)
+            
+        # Tính toán Deal-Grove đơn giản hóa: t = x^2/B + x/(B/A) -> Giải phương trình bậc 2 tìm x theo t
+        # Ax^2 + Bx - C = 0 (Chuyển đổi đơn vị cẩn thận)
+        # Ở đây dùng xấp xỉ tuyến tính + parabol đơn giản để minh họa
+        t_hours = time_min / 60.0
+        # Giải pt: x^2 + Ax = Bt (bỏ qua tau cho đơn giản)
+        # x^2 + (B/ (B/A)) * x - B*t = 0
+        A_const = B / BA
+        delta = A_const**2 + 4 * 1 * (B * t_hours)
+        thickness = (-A_const + np.sqrt(delta)) / 2 # micromet
+        
+        thickness_nm = thickness * 1000
+        
+        st.success(f"Độ dày lớp Oxide dự kiến: **{thickness_nm:.2f} nm**")
+        st.progress(min(thickness_nm/1000, 1.0))
+        
+        # Vẽ biểu đồ tăng trưởng
+        t_range = np.linspace(0, 5, 50) # 5 giờ
+        x_range = (-A_const + np.sqrt(A_const**2 + 4 * B * t_range)) / 2 * 1000
+        
+        fig_chart = go.Figure()
+        fig_chart.add_trace(go.Scatter(x=t_range*60, y=x_range, mode='lines', name=method))
+        fig_chart.update_layout(title="Độ dày Oxide theo thời gian", xaxis_title="Thời gian (phút)", yaxis_title="Độ dày (nm)")
+        st.plotly_chart(fig_chart, use_container_width=True)
+
+elif page == "Quang khắc (Lithography)":
+    st.markdown('<div class="sub-header">Quang khắc (Photolithography)</div>', unsafe_allow_html=True)
     
     st.markdown("""
-    Trong vật lý bán dẫn, xác suất tìm thấy một electron ở mức năng lượng $E$ được xác định bởi hàm phân bố Fermi-Dirac $f(E)$.
-    """)
+    <div class="info-box">
+    Quang khắc là quá trình sử dụng ánh sáng để chuyển một mẫu hình học từ mặt nạ quang (photomask) sang lớp chất cảm quang (photoresist) trên bề mặt wafer.
+    Đây là bước quan trọng nhất quyết định kích thước nhỏ nhất (CD - Critical Dimension) của chip.
+    </div>
+    """, unsafe_allow_html=True)
     
-    col1, col2 = st.columns([1, 2])
+    tabs = st.tabs(["Quy trình", "Độ phân giải (Resolution)"])
     
-    with col1:
-        st.markdown('<div class="formula-box">$$ f(E) = \\frac{1}{1 + e^{\\frac{E - E_F}{k_B T}}} $$</div>', unsafe_allow_html=True)
-        
-        st.write("**Điều chỉnh tham số:**")
-        temp_k = st.slider("Nhiệt độ T (Kelvin)", 0, 1000, 300, step=50)
-        ef_pos = st.slider("Mức Fermi ($E_F$) so với $E_i$ (eV)", -0.5, 0.5, 0.0, step=0.01)
-        
-        st.markdown("""
-        * **T = 0K:** Xác suất là hàm bậc thang (Step function).
-        * **T tăng:** Electron có xác suất cao hơn nhảy lên mức năng lượng cao.
-        * **Ef:** Mức năng lượng mà tại đó xác suất tìm thấy electron là 50%.
-        """)
-
-    with col2:
-        # Tính toán
-        E = np.linspace(-1, 1, 500) # Energy range from -1eV to 1eV
-        kb_eV = 8.617e-5 # Boltzmann constant in eV/K
-        
-        if temp_k == 0:
-            f_E = np.where(E < ef_pos, 1, 0)
-        else:
-            f_E = 1 / (1 + np.exp((E - ef_pos) / (kb_eV * temp_k)))
-            
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=f_E, y=E, mode='lines', name='f(E)', line=dict(color='firebrick', width=3)))
-        
-        # Thêm đường tham chiếu
-        fig.add_hline(y=ef_pos, line_dash="dash", line_color="green", annotation_text="Fermi Level (Ef)")
-        fig.add_hline(y=0.55, line_dash="dot", line_color="blue", annotation_text="Conduction Band (Ec)")
-        fig.add_hline(y=-0.55, line_dash="dot", line_color="blue", annotation_text="Valence Band (Ev)")
-        
-        fig.update_layout(
-            title=f"Hàm phân bố Fermi-Dirac tại T={temp_k}K",
-            xaxis_title="Xác suất f(E)",
-            yaxis_title="Năng lượng E (eV)",
-            height=500
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-# ==========================================
-# MODULE 3: PHÂN TÍCH MẠCH (LOAD LINE)
-# ==========================================
-def page_circuit():
-    st.markdown('<div class="main-header">Phân tích Điểm làm việc (Q-Point)</div>', unsafe_allow_html=True)
-    
-    st.write("""
-    Kỹ sư bán dẫn không chỉ cần hiểu linh kiện mà còn phải hiểu cách nó hoạt động trong mạch. 
-    Phương pháp **Đường tải (Load Line)** giúp tìm điểm làm việc tĩnh (Q-point) của Diode.
-    """)
-    
-    c1, c2 = st.columns([1, 2])
-    
-    with c1:
-        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Diode_load_line_circuit.svg/320px-Diode_load_line_circuit.svg.png", caption="Mạch Diode nối tiếp điện trở tải")
-        st.markdown("### Thông số mạch:")
-        v_source = st.number_input("Nguồn DC ($V_{DD}$)", value=5.0, min_value=1.0)
-        r_load = st.number_input("Điện trở tải $R$ ($\Omega$)", value=220.0, min_value=10.0)
-        
-    with c2:
-        # 1. Vẽ đặc tuyến Diode (Shockley equation)
-        vt = 0.026 # Thermal voltage at 300K ~ 26mV
-        Is = 1e-12 # Saturation current
-        n = 1.5    # Ideality factor
-        
-        v_diode = np.linspace(0, 1.5, 200)
-        i_diode = Is * (np.exp(v_diode / (n * vt)) - 1) * 1000 # convert to mA
-        
-        # 2. Vẽ đường tải (Load Line): V_DD = I*R + V_D => I = (V_DD - V_D)/R
-        i_loadline = (v_source - v_diode) / r_load * 1000 # convert to mA
-        
-        # 3. Tìm giao điểm (Q-point) - Giải gần đúng
-        idx = np.argwhere(np.diff(np.sign(i_diode - i_loadline))).flatten()
-        if len(idx) > 0:
-            q_v = v_diode[idx[0]]
-            q_i = i_diode[idx[0]]
-        else:
-            q_v, q_i = 0, 0
-
-        fig = go.Figure()
-        
-        # Plot Diode Curve
-        fig.add_trace(go.Scatter(x=v_diode, y=i_diode, name='Đặc tuyến Diode', line=dict(color='blue')))
-        
-        # Plot Load Line
-        fig.add_trace(go.Scatter(x=v_diode, y=i_loadline, name='Đường tải (Load Line)', line=dict(color='red', dash='dash')))
-        
-        # Plot Q-point
-        fig.add_trace(go.Scatter(x=[q_v], y=[q_i], mode='markers+text', 
-                                 text=[f'Q-point ({q_v:.2f}V, {q_i:.2f}mA)'], 
-                                 textposition="top left",
-                                 marker=dict(size=12, color='green', symbol='x'),
-                                 name='Điểm làm việc Q'))
-
-        fig.update_layout(
-            title="Biểu đồ xác định điểm làm việc Q",
-            xaxis_title="Điện áp Diode $V_D$ (V)",
-            yaxis_title="Dòng điện $I_D$ (mA)",
-            yaxis_range=[0, v_source/r_load*1000*1.2],
-            xaxis_range=[0, 1.5]
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        
-        if len(idx) > 0:
-            st.success(f"📌 **Kết luận:** Tại mạch này, Diode sẽ ghim áp ở **{q_v:.2f} V** và dòng điện chạy qua là **{q_i:.2f} mA**.")
-
-# ==========================================
-# MODULE 4: QUY TRÌNH FAB (VISUAL TIMELINE)
-# ==========================================
-def page_fab():
-    st.markdown('<div class="main-header">Quy trình Sản xuất Chip (Photolithography)</div>', unsafe_allow_html=True)
-    
-    tabs = st.tabs(["1. Oxidation", "2. Photoresist", "3. Exposure", "4. Etching", "5. Stripping"])
-    
-    # Hàm vẽ mô phỏng mặt cắt ngang wafer đơn giản bằng Plotly Shapes
-    def draw_wafer(step):
-        fig = go.Figure()
-        
-        # Silicon Substrate (Base)
-        fig.add_shape(type="rect", x0=0, y0=0, x1=10, y1=2, 
-                      fillcolor="gray", line=dict(color="black"), name="Silicon")
-        fig.add_annotation(x=5, y=1, text="Silicon Substrate", showarrow=False, font=dict(color="white"))
-        
-        # Oxide Layer
-        if step >= 1:
-            fig.add_shape(type="rect", x0=0, y0=2, x1=10, y1=2.5, 
-                          fillcolor="blue", line=dict(color="black"), opacity=0.5)
-            fig.add_annotation(x=1, y=2.25, text="SiO2", showarrow=False, font=dict(color="white"))
-            
-        # Photoresist
-        if step == 2 or step == 3:
-            fig.add_shape(type="rect", x0=0, y0=2.5, x1=10, y1=3.0, 
-                          fillcolor="red", line=dict(color="black"), opacity=0.6)
-            fig.add_annotation(x=5, y=2.75, text="Photoresist (PR)", showarrow=False)
-            
-        # Exposure Mask
-        if step == 3:
-            # Mask blocking light
-            fig.add_shape(type="rect", x0=3, y0=3.5, x1=7, y1=3.6, fillcolor="black") 
-            fig.add_annotation(x=5, y=3.8, text="Mask", showarrow=False)
-            # UV Light arrows
-            for x in [1, 2, 8, 9]:
-                fig.add_annotation(x=x, y=3.5, ax=x, ay=4.5, arrowheader=2, arrowcolor="purple", text="UV")
-            # Exposed PR changes color
-            fig.add_shape(type="rect", x0=0, y0=2.5, x1=3, y1=3.0, fillcolor="pink", line_width=0)
-            fig.add_shape(type="rect", x0=7, y0=2.5, x1=10, y1=3.0, fillcolor="pink", line_width=0)
-
-        # Etching (After developing PR and etching Oxide)
-        if step == 4:
-            # Remaining PR in center (Positive PR assumption)
-            fig.add_shape(type="rect", x0=3, y0=2.5, x1=7, y1=3.0, fillcolor="red", line=dict(color="black"))
-            # Oxide etched away on sides
-            fig.add_shape(type="rect", x0=3, y0=2, x1=7, y1=2.5, fillcolor="blue", opacity=0.5)
-        
-        # Stripping
-        if step == 5:
-            # Only Oxide pattern remains
-            fig.add_shape(type="rect", x0=3, y0=2, x1=7, y1=2.5, fillcolor="blue", opacity=0.5)
-
-        fig.update_xaxes(visible=False, range=[-1, 11])
-        fig.update_yaxes(visible=False, range=[0, 5])
-        fig.update_layout(height=300, margin=dict(t=0, b=0, l=0, r=0), paper_bgcolor="rgba(0,0,0,0)")
-        return fig
-
     with tabs[0]:
-        st.markdown("### 1. Oxi hóa nhiệt (Thermal Oxidation)")
-        st.write("Tạo lớp $SiO_2$ cách điện trên bề mặt Si.")
-        st.latex(r"Si (rắn) + O_2 (khí) \xrightarrow{900-1200^\circ C} SiO_2 (rắn)")
-        st.plotly_chart(draw_wafer(1), use_container_width=True)
+        st.write("1. **Spin Coating:** Phủ lớp chất cảm quang (PR).")
+        st.write("2. **Exposure:** Chiếu tia UV qua mặt nạ.")
+        st.write("3. **Development:** Loại bỏ phần PR đã bị chiếu sáng (với Positive PR).")
+        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Photolithography_process_steps.svg/800px-Photolithography_process_steps.svg.png", caption="Các bước quang khắc")
         
     with tabs[1]:
-        st.markdown("### 2. Phủ quang trở (Spin Coating)")
-        st.write("Phủ một lớp chất nhạy sáng (Photoresist - PR) lên bề mặt.")
-        st.plotly_chart(draw_wafer(2), use_container_width=True)
-
-    with tabs[2]:
-        st.markdown("### 3. Chiếu sáng (Exposure)")
-        st.write("Chiếu tia UV qua mặt nạ (Mask). Phần PR tiếp xúc UV sẽ bị biến đổi hóa học (trở nên dễ tan hoặc khó tan tùy loại PR).")
-        st.plotly_chart(draw_wafer(3), use_container_width=True)
-        
-    with tabs[3]:
-        st.markdown("### 4. Ăn mòn (Etching)")
-        st.write("Dùng axit (Wet etching) hoặc Plasma (Dry etching) để ăn mòn lớp $SiO_2$ tại những vị trí không được PR bảo vệ.")
-        st.plotly_chart(draw_wafer(4), use_container_width=True)
-
-    with tabs[4]:
-        st.markdown("### 5. Loại bỏ PR (Stripping)")
-        st.write("Loại bỏ lớp PR còn sót lại, để lại mẫu $SiO_2$ mong muốn trên đế Si.")
-        st.plotly_chart(draw_wafer(5), use_container_width=True)
-
-# ==========================================
-# MAIN ROUTER
-# ==========================================
-if page == "Trang chủ":
-    st.markdown('<div class="main-header">SEMICONDUCTOR ENGINEERING PORTFOLIO</div>', unsafe_allow_html=True)
-    
-    col_intro, col_img = st.columns([1.5, 1])
-    
-    with col_intro:
-        st.markdown(f"""
-        ### Xin chào, tôi là Bảo Khang 👋
-        **Mã sinh viên:** BEC250028
-        
-        Chào mừng đến với "Phòng thí nghiệm ảo" của tôi. Đây là nơi tôi tổng hợp, trực quan hóa và mô phỏng các kiến thức chuyên ngành **Công nghệ Bán dẫn**.
-        
-        #### Mục tiêu dự án:
-        1.  **Trực quan hóa:** Biến các công thức vật lý khô khan thành mô hình 3D.
-        2.  **Tính toán:** Hỗ trợ giải bài tập chuyên ngành nhanh chóng.
-        3.  **Lưu trữ:** Xây dựng kho tri thức cá nhân (Second Brain).
+        st.markdown("#### Tiêu chuẩn Rayleigh")
+        st.latex(r"R = k_1 \frac{\lambda}{NA}")
+        st.write("""
+        Để tạo ra chip nhỏ hơn (R nhỏ), chúng ta cần:
+        * Giảm bước sóng ánh sáng ($\lambda$): UV (365nm) -> DUV (193nm) -> EUV (13.5nm).
+        * Tăng khẩu độ số ($NA$): Dùng thấu kính lớn hơn hoặc ngâm trong nước (Immersion).
         """)
         
-        st.info("💡 **Mẹo:** Truy cập menu bên trái để trải nghiệm các mô phỏng 3D!")
+        col_calc1, col_calc2 = st.columns(2)
+        with col_calc1:
+            wavelength = st.selectbox("Bước sóng ánh sáng (nm)", [365, 248, 193, 13.5])
+            na = st.slider("Khẩu độ số (NA)", 0.5, 1.35, 0.9)
+            k1 = st.number_input("Hệ số quy trình (k1)", 0.25, 0.8, 0.4)
+        with col_calc2:
+            res = k1 * wavelength / na
+            st.metric(label="Độ phân giải tối thiểu (Critical Dimension)", value=f"{res:.2f} nm")
+            if res < 20:
+                st.success("Công nghệ siêu cao cấp (High-end Node)")
+            elif res < 100:
+                st.warning("Công nghệ tiên tiến")
+            else:
+                st.info("Công nghệ cũ")
 
-    with col_img:
-        # Placeholder image for a futuristic chip
-        st.image("https://images.unsplash.com/photo-1555664424-778a1e5e1b48?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80", 
-                 caption="Chip Design Visualization", use_column_width=True)
+elif page == "Ăn mòn (Etching)":
+    st.markdown('<div class="sub-header">Ăn mòn (Etching)</div>', unsafe_allow_html=True)
+    st.write("Sau khi quang khắc, chúng ta cần loại bỏ lớp vật liệu bên dưới (ví dụ SiO2) tại các vùng không được che chắn bởi Photoresist.")
+    
+    col_etch1, col_etch2 = st.columns(2)
+    with col_etch1:
+        st.subheader("Wet Etching (Ăn mòn ướt)")
+        st.write("- Sử dụng dung dịch hóa chất (VD: HF để ăn mòn SiO2).")
+        st.write("- **Isotropic (Đẳng hướng):** Ăn mòn theo mọi hướng, tạo ra undercut.")
+        st.write("- Rẻ, nhanh, nhưng độ chính xác thấp.")
+        
+    with col_etch2:
+        st.subheader("Dry Etching (Ăn mòn khô / Plasma)")
+        st.write("- Sử dụng khí ion hóa (Plasma).")
+        st.write("- **Anisotropic (Dị hướng):** Ăn mòn chủ yếu theo chiều thẳng đứng.")
+        st.write("- Độ chính xác cao, dùng cho các node công nghệ nhỏ.")
 
-elif page == "1. Cấu trúc Tinh thể (3D)":
-    page_crystal()
-elif page == "2. Vật lý Bán dẫn (Fermi)":
-    page_physics()
-elif page == "3. Phân tích Mạch Diode (Q-point)":
-    page_circuit()
-elif page == "4. Quy trình Fab (Chi tiết)":
+    st.markdown("#### Tính toán tốc độ ăn mòn")
+    thickness_to_etch = st.number_input("Độ dày cần ăn mòn (nm)", value=500)
+    etch_rate = st.number_input("Tốc độ ăn mòn (nm/phút)", value=50)
+    over_etch = st.slider("Over-etch (%)", 0, 50, 10, help="Ăn mòn thêm để đảm bảo sạch hoàn toàn")
+    
+    total_time = (thickness_to_etch / etch_rate) * (1 + over_etch/100)
+    st.write(f"Thời gian ăn mòn cần thiết: **{total_time:.2f} phút**")
+
+elif page == "Mô phỏng Fab (Simulation)":
+    st.markdown('<div class="sub-header">Mô phỏng Quy trình Fab (Interactive)</div>', unsafe_allow_html=True)
+    
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Điều khiển Mô phỏng")
+    
+    # Trạng thái mô phỏng
+    step_mapping = {
+        0: "Bắt đầu (Substrate)",
+        1: "1. Oxy hóa (Tạo SiO2)",
+        2: "2. Phủ PR (Spin Coating)",
+        3: "3. Chiếu xạ (Exposure - UV)",
+        4: "4. Hiện hình (Development)",
+        5: "5. Ăn mòn (Etching)",
+        6: "6. Loại bỏ PR (Stripping)"
+    }
+    
+    selected_step_idx = st.sidebar.slider("Chọn bước quy trình:", 0, 6, 0)
+    st.subheader(step_mapping[selected_step_idx])
+    
+    # Hiển thị mô phỏng hình ảnh
+    # Truyền tham số giả định oxide height để vẽ cho đẹp
+    fig = draw_wafer(selected_step_idx, params={'oxide_h': 1.0})
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Giải thích ngữ cảnh theo từng bước
+    if selected_step_idx == 0:
+        st.info("Bắt đầu với phiến Silicon (Si Wafer) tinh khiết đã được làm sạch.")
+    elif selected_step_idx == 1:
+        st.info("Lớp SiO2 màu xanh được mọc lên bề mặt Si để bảo vệ hoặc cách điện.")
+    elif selected_step_idx == 2:
+        st.info("Phủ một lớp Photoresist (PR - màu đỏ) nhạy sáng lên trên lớp Oxide.")
+    elif selected_step_idx == 3:
+        st.error("Chiếu tia UV qua mặt nạ (Mask). Phần PR bị chiếu sáng sẽ thay đổi tính chất hóa học.")
+        st.markdown("**Lưu ý:** Đây là bước bạn gặp lỗi trước đó. Tôi đã sửa lại mã lệnh vẽ mũi tên (UV) để không bị lỗi `arrowheader`.")
+    elif selected_step_idx == 4:
+        st.info("Rửa wafer trong dung dịch Developer. Phần PR bị chiếu sáng tan đi, lộ ra lớp Oxide bên dưới.")
+    elif selected_step_idx == 5:
+        st.warning("Dùng Plasma hoặc Axit để ăn mòn lớp Oxide lộ ra. Lớp PR còn lại bảo vệ phần Oxide bên dưới nó.")
+    elif selected_step_idx == 6:
+        st.success("Loại bỏ lớp PR còn lại. Kết quả là mẫu thiết kế đã được chuyển sang lớp Oxide thành công!")
+
+# --- Footer ---
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: center; color: grey;'>© 2025 Đại học CMC. Ứng dụng hỗ trợ học tập môn Công nghệ Bán dẫn.</div>", 
+    unsafe_allow_html=True
+)
     page_fab()
+
 
