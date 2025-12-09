@@ -566,22 +566,3 @@ st.markdown("""
     Built with Python & Streamlit for Educational Purpose.
 </div>
 """, unsafe_allow_html=True)
-
-### Hướng dẫn sử dụng & Chạy ứng dụng
-
-1.  **Cài đặt thư viện:**
-    Bạn cần cài đặt các thư viện Python sau (mở terminal và gõ):
-    ```bash
-    pip install streamlit plotly pandas numpy
-    ```
-
-2.  **Lưu file:**
-    Lưu đoạn code trên thành file tên là `semiconductor_portfolio.py`.
-
-3.  **Chạy ứng dụng:**
-    Mở terminal tại thư mục chứa file và gõ:
-    ```bash
-    streamlit run semiconductor_portfolio.py
-
-
-
