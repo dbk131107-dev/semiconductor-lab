@@ -46,4 +46,4 @@ Matplotlib: Vẽ đồ thị khoa học.
 
 Pandas/Numpy: Xử lý số liệu.
 
-Dự án được thực hiện bởi sinh viên năm nhất ngành Bán dẫn.
+Dự án được thực hiện bởi sinh viên ngành Bán dẫn.
